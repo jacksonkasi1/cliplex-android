@@ -1,35 +1,33 @@
 package com.learnthis.data.repository
 
-import android.content.Context
+import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.preferencesDataStore
-import com.learnthis.data.model.PreferencesKeys
+import androidx.datastore.preferences.core.stringPreferencesKey
+import com.learnthis.common.AppLanguage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-private val Context.dataStore by preferencesDataStore(name = "settings")
+class PreferencesRepository(private val dataStore: DataStore<Preferences>) {
 
-class PreferencesRepository(
- private val dataStore: androidx.datastore.core.DataStore<Preferences>
- ) {
- suspend fun setMotherTongue(languageCode: String) {
- dataStore.edit { prefs ->
- prefs[PreferencesKeys.MOTHER_TONGUE] = languageCode
- }
+ companion object {
+ val MOTHER_TONGUE = stringPreferencesKey("mother_tongue")
+ val ONBOARDING_COMPLETED = stringPreferencesKey("onboarding_completed")
  }
 
- fun getMotherTongue(): Flow<String?> = dataStore.data.map { prefs ->
- prefs[PreferencesKeys.MOTHER_TONGUE]
+ val motherTongue: Flow<AppLanguage?> = dataStore.data.map { prefs ->
+ AppLanguage.fromTag(prefs[MOTHER_TONGUE])
+ }
+
+ val isOnboardingCompleted: Flow<Boolean> = dataStore.data.map { prefs ->
+ prefs[ONBOARDING_COMPLETED] == "true"
+ }
+
+ suspend fun setMotherTongue(language: AppLanguage) {
+ dataStore.edit { prefs -> prefs[MOTHER_TONGUE] = language.tag }
  }
 
  suspend fun setOnboardingCompleted(completed: Boolean) {
- dataStore.edit { prefs ->
- prefs[PreferencesKeys.ONBOARDING_COMPLETED] = if (completed) "true" else "false"
- }
- }
-
- fun isOnboardingCompleted(): Flow<Boolean> = dataStore.data.map { prefs ->
- prefs[PreferencesKeys.ONBOARDING_COMPLETED] == "true"
+ dataStore.edit { prefs -> prefs[ONBOARDING_COMPLETED] = if (completed) "true" else "false" }
  }
 }
