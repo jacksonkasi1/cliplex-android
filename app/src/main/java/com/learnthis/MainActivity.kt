@@ -1,13 +1,18 @@
 package com.learnthis
 
+import android.content.Context
+import android.content.Intent
+import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.learnthis.common.AppLanguage
 import com.learnthis.ui.screen.HomeScreen
 import com.learnthis.ui.screen.ModelManagementScreen
@@ -16,13 +21,28 @@ import com.learnthis.ui.theme.LearnThisTheme
 import com.learnthis.ui.viewmodel.ModelManagementViewModel
 import com.learnthis.ui.viewmodel.OnboardingViewModel
 import com.learnthis.util.NativeBridge
-import androidx.lifecycle.viewmodel.compose.viewModel
 
 class MainActivity : ComponentActivity() {
+
+	private var hasMediaProjectionPermission = false
+
+	private val mediaProjectionLauncher = registerForActivityResult(
+		ActivityResultContracts.StartActivityForResult()
+	) { result ->
+		if (result.resultCode == android.app.Activity.RESULT_OK && result.data != null) {
+			hasMediaProjectionPermission = true
+			val intent = Intent(this, com.learnthis.service.CaptureService::class.java).apply {
+				action = com.learnthis.service.CaptureService.ACTION_START
+				putExtra(com.learnthis.service.CaptureService.EXTRA_MEDIA_PROJECTION_RESULT_CODE, result.resultCode)
+				putExtra(com.learnthis.service.CaptureService.EXTRA_MEDIA_PROJECTION_RESULT_DATA, result.data)
+			}
+			startService(intent)
+		}
+	}
+
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 
-		// Verify native library loads
 		try {
 			Log.i("MainActivity", "Native version: ${NativeBridge.getNativeVersion()}")
 			Log.i("MainActivity", "Native ready: ${NativeBridge.isNativeReady()}")
@@ -60,24 +80,23 @@ class MainActivity : ComponentActivity() {
 						)
 					}
 					modelUiState.isChecking -> {
-						// Checking models — splash handled by ModelManagementScreen
 						ModelManagementScreen(
 							onBack = { finish() },
-							onModelsReady = { /* proceed */ },
+							onModelsReady = { },
 							modifier = Modifier.fillMaxSize()
 						)
 					}
 					!modelUiState.models.any { it.progress is com.learnthis.domain.model.ModelDownloadProgress.Ready } -> {
 						ModelManagementScreen(
 							onBack = { finish() },
-							onModelsReady = { /* proceed */ },
+							onModelsReady = { },
 							modifier = Modifier.fillMaxSize()
 						)
 					}
 					else -> {
 						HomeScreen(
 							selectedLanguage = selectedLanguage,
-							onStartLearning = { /* Phase 04 */ },
+							onStartLearning = { requestMediaProjection() },
 							onChangeLanguage = {
 								selectedLanguage?.let { onboardingViewModel.selectLanguage(it) }
 							},
@@ -87,5 +106,14 @@ class MainActivity : ComponentActivity() {
 				}
 			}
 		}
+	}
+
+	private fun requestMediaProjection() {
+		val projectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+		mediaProjectionLauncher.launch(projectionManager.createScreenCaptureIntent())
+	}
+
+	override fun onDestroy() {
+		super.onDestroy()
 	}
 }
