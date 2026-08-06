@@ -1,0 +1,53 @@
+# Gradle
+.gradle
+build/
+
+# Android Studio / IntelliJ
+.idea
+*.iml
+*.iws
+*.ipr
+local.properties
+
+# Keystore / signing
+*.jks
+*.keystore
+
+# Native build outputs
+.cxx/
+obj/
+*.o
+*.so
+*.a
+*.lib
+CMakeCache.txt
+CMakeFiles/
+cmake-build-*/
+
+# Models (downloaded separately)
+models/*.bin
+models/*.tflite
+*.gguf
+
+# Temporary audio
+temporary/*
+!temporary/.gitkeep
+
+# Gradle wrapper
+!gradle/wrapper/gradle-wrapper.jar
+gradle-wrapper.properties
+
+# Test assets with large binaries
+test-assets/*.wav
+test-assets/*.mp3
+!test-assets/.gitkeep
+
+# Debug outputs
+capture-logs/
+debug-audio/
+
+# OS files
+Thumbs.db
+.DS_Store
+*.swp
+*.swo

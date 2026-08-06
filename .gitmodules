@@ -1,0 +1,5 @@
+[submodule "native/whisper.cpp"]
+	path = native/whisper.cpp
+	url = https://github.com/ggerganov/whisper.cpp.git
+	# Checkout a specific commit for reproducibility
+	# Run: git submodule update --init --recursive after clone

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+ <string name="app_name">Learn This</string>
+ <string name="app_tagline">Learn from any video</string>
+ <string name="start_learning_mode">Start Learning Mode</string>
+ <string name="what_is_your_mother_tongue">What is your mother tongue?</string>
+ <string name="select_language">Select your language</string>
+ <string name="mother_tongue">mother_tongue</string>
+ <string name="change_language">Change language</string>
+ <string name="speech_model_status">Speech model</string>
+ <string name="translation_model_status">Translation model</string>
+ <string name="model_not_downloaded">Not downloaded</string>
+ <string name="model_downloading">Downloading…</string>
+ <string name="model_ready">Ready</string>
+ <string name="model_failed">Failed</string>
+ <string name="download_model">Download</string>
+ <string name="cancel">Cancel</string>
+ <string name="stop">Stop</string>
+ <string name="listening">Listening…</string>
+ <string name="processing">Processing…</string>
+ <string name="replay">Replay</string>
+ <string name="copy">Copy</string>
+ <string name="privacy_notice">Audio is processed temporarily on this device and is not uploaded.</string>
+ <string name="error_source_blocked">This application did not provide capturable playback audio.</string>
+ <string name="error_silence">No playback audio was captured.</string>
+ <string name="error_no_speech">Audio was captured, but spoken dialogue was not detected.</string>
+ <string name="error_model_failure">The speech model could not process this audio.</string>
+ <string name="error_translation">Translation failed.</string>
+ <string name="learn_this">Learn This</string>
+ <string name="finish">Finish</string>
+ <string name="audio_diagnostics">Audio Diagnostics</string>
+ <string name="benchmark">Benchmark</string>
+ <string name="settings">Settings</string>
+ <string name="unknown_language">Unknown</string>
+</resources>
