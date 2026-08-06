@@ -6,7 +6,8 @@ data class TranscriptionSegment(
  val endTimeMs: Long,
  val language: String,
  val confidence: Float? = null,
- val noSpeechProb: Float? = null
+ val noSpeechProb: Float? = null,
+ var translatedText: String? = null,
  )
 
 data class TranscriptionResult(

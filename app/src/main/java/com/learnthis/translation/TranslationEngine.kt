@@ -5,17 +5,12 @@ import com.google.mlkit.nl.translate.TranslateLanguage
 import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.Translator
 import com.google.mlkit.nl.translate.TranslatorOptions
-import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withContext
-import kotlin.coroutines.CoroutineContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
- * ML Kit on-device translation wrapper.
- *
- * Usage:
- * 1. TranslationEngine.initialize(context, sourceLang, targetLang)
- * 2. translate(text) -> Result<String>
- * 3. close() when done
+ * ML Kit on-device translation wrapper using callback-based suspend.
  */
 class TranslationEngine private constructor() {
 
@@ -35,13 +30,14 @@ class TranslationEngine private constructor() {
  context: Context,
  sourceLang: String,
  targetLang: String,
- ): Result<Unit> = withContext(Dispatchers.IO) {
+ ): Result<Unit> = suspendCancellableCoroutine { cont ->
  try {
  if (translator != null &&
  currentSourceLang == sourceLang &&
  currentTargetLang == targetLang
  ) {
- return@withContext Result.success(Unit)
+ cont.resume(Result.success(Unit))
+ return@suspendCancellableCoroutine
  }
 
  translator?.close()
@@ -50,9 +46,10 @@ class TranslationEngine private constructor() {
  val targetCode = languageCode(targetLang)
 
  if (sourceCode == null || targetCode == null) {
- return@withContext Result.failure(
+ cont.resume(Result.failure(
  IllegalArgumentException("Unsupported language pair: $sourceLang -> $targetLang")
- )
+ ))
+ return@suspendCancellableCoroutine
  }
 
  val options = TranslatorOptions.Builder()
@@ -64,51 +61,62 @@ class TranslationEngine private constructor() {
  currentSourceLang = sourceLang
  currentTargetLang = targetLang
 
- Result.success(Unit)
+ cont.resume(Result.success(Unit))
  } catch (e: Exception) {
- Result.failure(e)
+ cont.resumeWithException(e)
  }
  }
 
- suspend fun translate(text: String): Result<String> = withContext(Dispatchers.IO) {
+ suspend fun translate(text: String): Result<String> = suspendCancellableCoroutine { cont ->
  val translator = this@TranslationEngine.translator
  if (translator == null) {
- return@withContext Result.failure(IllegalStateException("TranslationEngine not initialized"))
+ cont.resume(Result.failure(IllegalStateException("TranslationEngine not initialized")))
+ return@suspendCancellableCoroutine
  }
 
  if (text.isBlank()) {
- return@withContext Result.success(text)
+ cont.resume(Result.success(text))
+ return@suspendCancellableCoroutine
  }
 
- try {
- val result = translator.translate(text).await()
- Result.success(result)
- } catch (e: Exception) {
- Result.failure(e)
- }
+ translator.translate(text)
+ .addOnSuccessListener { result -> cont.resume(Result.success(result)) }
+ .addOnFailureListener { e -> cont.resume(Result.failure(e)) }
  }
 
- suspend fun translateBatch(texts: List<String>): Result<List<String>> = withContext(Dispatchers.IO) {
+ suspend fun translateBatch(texts: List<String>): Result<List<String>> = suspendCancellableCoroutine { cont ->
  val translator = this@TranslationEngine.translator
  if (translator == null) {
- return@withContext Result.failure(IllegalStateException("TranslationEngine not initialized"))
+ cont.resume(Result.failure(IllegalStateException("TranslationEngine not initialized")))
+ return@suspendCancellableCoroutine
  }
 
- val results = texts.map { text ->
- try {
- val result = translator.translate(text).await()
- Result.success(result)
- } catch (e: Exception) {
- Result.failure(e)
- }
+ val results = mutableListOf<String>()
+ var pending = texts.size
+ var failed = false
+
+ if (texts.isEmpty()) {
+ cont.resume(Result.success(emptyList()))
+ return@suspendCancellableCoroutine
  }
 
- val failures = results.filter { it.isFailure }
- if (failures.isNotEmpty()) {
- return@withContext Result.failure(failures.first().exceptionOrNull() ?: Exception("Batch translation failed"))
+ for (text in texts) {
+ translator.translate(text)
+ .addOnSuccessListener { result ->
+ results.add(result)
+ pending--
+ if (pending == 0 && !failed) {
+ cont.resume(Result.success(results))
  }
-
- Result.success(results.map { it.getOrNull() ?: "" })
+ }
+ .addOnFailureListener { e ->
+ failed = true
+ pending--
+ if (pending == 0) {
+ cont.resume(Result.failure(e))
+ }
+ }
+ }
  }
 
  fun close() {
