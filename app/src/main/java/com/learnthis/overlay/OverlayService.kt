@@ -7,9 +7,21 @@ import android.os.IBinder
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.ComposeView
-import androidx.core.view.setPadding
 
 class OverlayService : Service() {
 
@@ -32,28 +44,28 @@ class OverlayService : Service() {
  private fun showOverlay() {
  if (overlayView != null) return
 
- val composeView = ComposeView(this).apply {
- setContent {
- OverlayFabContent(
- onClick = { sendBroadcast(Intent(ACTION_CAPTURE_REQUESTED)) }
- )
- }
+ val composeView = ComposeView(this)
+ composeView.setContent {
+ OverlayFabContent(onClick = {
+ sendBroadcast(Intent(ACTION_CAPTURE_REQUESTED))
+ })
  }
 
+ val density = resources.displayMetrics.density
+ val sizePx = (56 * density).toInt()
+
  val params = WindowManager.LayoutParams(
- WindowManager.LayoutParams.WRAP_CONTENT,
- WindowManager.LayoutParams.WRAP_CONTENT,
+ sizePx, sizePx,
  if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O)
  WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
  else
  WindowManager.LayoutParams.TYPE_PHONE,
- WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
- WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+ WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
  PixelFormat.TRANSLUCENT
  )
  params.gravity = Gravity.END or Gravity.BOTTOM
- params.x = 32
- params.y = 32
+ params.x = (16 * density).toInt()
+ params.y = (16 * density).toInt()
 
  overlayView = composeView
  windowManager?.addView(composeView, params)
@@ -82,15 +94,12 @@ class OverlayService : Service() {
 
 @Composable
 fun OverlayFabContent(onClick: () -> Unit) {
- androidx.compose.material3.FloatingActionButton(
+ FloatingActionButton(
  onClick = onClick,
- containerColor = androidx.compose.material3.MaterialTheme.colorScheme.primaryContainer,
- contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimaryContainer,
- modifier = androidx.compose.ui.Modifier.size(56.dp),
+ containerColor = MaterialTheme.colorScheme.primaryContainer,
+ contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+ modifier = Modifier.size(56.dp),
  ) {
- androidx.compose.material3.Icon(
- androidx.compose.material.icons.Icons.Default.Mic,
- contentDescription = "Capture"
- )
+ Icon(Icons.Default.Mic, contentDescription = "Capture")
  }
 }
