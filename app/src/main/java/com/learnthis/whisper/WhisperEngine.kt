@@ -1,8 +1,10 @@
 package com.learnthis.whisper
 
 import com.learnthis.util.NativeBridge
+import com.learnthis.domain.model.TranscriptionSegment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 class WhisperEngine {
 
@@ -11,13 +13,14 @@ class WhisperEngine {
  const val DEFAULT_N_THREADS = 4
  }
 
- private var isModelLoaded = false
+ @Volatile private var loadedModelPath: String? = null
 
  suspend fun loadModel(modelPath: String): Result<Unit> = withContext(Dispatchers.IO) {
+ if (loadedModelPath == modelPath) return@withContext Result.success(Unit)
  try {
  val ok = NativeBridge.whisperLoadModel(modelPath)
  if (ok) {
- isModelLoaded = true
+ loadedModelPath = modelPath
  Result.success(Unit)
  } else {
  Result.failure(IllegalStateException("Failed to load model: $modelPath"))
@@ -31,10 +34,10 @@ class WhisperEngine {
 
  suspend fun transcribe(
  samples: ShortArray,
- language: String = "en",
+ language: String = "auto",
  nThreads: Int = DEFAULT_N_THREADS,
  ): Result<List<TranscriptionSegment>> = withContext(Dispatchers.IO) {
- if (!isModelLoaded) {
+ if (loadedModelPath == null) {
  return@withContext Result.failure(IllegalStateException("Model not loaded"))
  }
 
@@ -53,37 +56,32 @@ class WhisperEngine {
  }
 
  fun release() {
- if (isModelLoaded) {
+ if (loadedModelPath != null) {
  NativeBridge.whisperFreeModel()
- isModelLoaded = false
+ loadedModelPath = null
  }
  }
 
  private fun parseResult(json: String): List<TranscriptionSegment> {
+ val root = JSONObject(json)
+ val detectedLanguage = root.optString("language")
+ val values = root.optJSONArray("segments") ?: return emptyList()
  val segments = mutableListOf<TranscriptionSegment>()
- val regex = Regex(""""start":(\d+),"end":(\d+),"text":"([^"]*)"""")
- val matches = regex.findAll(json)
- for (match in matches) {
- val startMs = match.groupValues[1].toLongOrNull() ?: 0L
- val endMs = match.groupValues[2].toLongOrNull() ?: 0L
- val text = match.groupValues[3]
+ for (index in 0 until values.length()) {
+ val value = values.getJSONObject(index)
+ val startMs = value.optLong("start")
+ val endMs = value.optLong("end")
+ val text = value.optString("text")
  if (text.isNotBlank()) {
- segments.add(TranscriptionSegment(text = text.trim(), startTimeMs = startMs, endTimeMs = endMs, language = ""))
+ segments.add(TranscriptionSegment(
+ text = text.trim(),
+ startTimeMs = startMs,
+ endTimeMs = endMs,
+ language = detectedLanguage,
+ noSpeechProb = value.optDouble("noSpeechProb", Double.NaN).takeUnless { it.isNaN() }?.toFloat(),
+ ))
  }
- }
- if (segments.isEmpty() && json.isNotBlank()) {
- segments.add(TranscriptionSegment(text = json.trim(), startTimeMs = 0, endTimeMs = 0, language = ""))
  }
  return segments
  }
 }
-
-data class TranscriptionSegment(
- val text: String,
- val startTimeMs: Long,
- val endTimeMs: Long,
- val language: String,
- val confidence: Float? = null,
- val noSpeechProb: Float? = null,
- var translatedText: String? = null,
-)

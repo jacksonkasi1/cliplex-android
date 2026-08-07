@@ -2,143 +2,217 @@ package com.learnthis.ui.viewmodel
 
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.AudioFormat
+import android.media.AudioTrack
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.learnthis.common.AppLanguage
+import com.learnthis.audio.Pcm16
+import com.learnthis.data.local.SessionEntity
+import com.learnthis.data.repository.ModelRepository
+import com.learnthis.data.repository.PreferencesRepository
+import com.learnthis.data.repository.SessionRepository
+import com.learnthis.domain.model.AudioHealth
+import com.learnthis.domain.model.CaptureError
+import com.learnthis.domain.model.ModelType
 import com.learnthis.domain.model.TranscriptionSegment
 import com.learnthis.service.CaptureService
-import com.learnthis.whisper.WhisperEngine
 import com.learnthis.translation.TranslationEngine
-import com.learnthis.vad.EnergyVad
+import com.learnthis.whisper.WhisperEngine
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 class HomeViewModel(
- private val whisperEngine: WhisperEngine,
- private val translationEngine: TranslationEngine,
+	private val modelRepository: ModelRepository,
+	private val preferencesRepository: PreferencesRepository,
+	private val sessionRepository: SessionRepository,
+	private val whisperEngine: WhisperEngine,
+	private val translationEngine: TranslationEngine,
 ) : ViewModel() {
+	private val _uiState = MutableStateFlow(HomeUiState())
+	val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+	private var motherTongue: AppLanguage = AppLanguage.ENGLISH
+	private var modelLoadJob: Job
+	private var processedSessionId = 0L
+	private var latestSamples = ShortArray(0)
+	private var player: AudioTrack? = null
 
- private val _uiState = MutableStateFlow(HomeUiState())
- val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+	init {
+		modelLoadJob = viewModelScope.launch(Dispatchers.IO) {
+			val type = if (modelRepository.isModelAvailable(ModelType.TINY_Q5_1)) {
+				ModelType.TINY_Q5_1
+			} else modelRepository.listDownloadedModels().firstOrNull()
+			if (type == null) {
+				_uiState.value = _uiState.value.copy(modelError = "No speech model is installed")
+			} else {
+				val result = whisperEngine.loadModel(modelRepository.getModelFile(type).absolutePath)
+				_uiState.value = _uiState.value.copy(
+					isModelReady = result.isSuccess,
+					modelName = if (result.isSuccess) type.displayName else null,
+					modelError = result.exceptionOrNull()?.message,
+				)
+			}
+		}
+		viewModelScope.launch {
+			preferencesRepository.motherTongue.collect { if (it != null) motherTongue = it }
+		}
+		viewModelScope.launch {
+			CaptureService.captureState.collect { state ->
+				_uiState.value = _uiState.value.copy(
+					captureState = state,
+					error = (state as? CaptureService.CaptureState.Error)?.error,
+				)
+			}
+		}
+		viewModelScope.launch {
+			CaptureService.capturedAudioDuration.collect { duration ->
+				_uiState.value = _uiState.value.copy(captureDurationMs = duration)
+			}
+		}
+		viewModelScope.launch {
+			CaptureService.latestSession.collect { session ->
+				if (session != null && session.id > processedSessionId) {
+					processedSessionId = session.id
+					processSession(session)
+				}
+			}
+		}
+	}
 
- private var captureService: CaptureService? = null
- private val vad = EnergyVad()
- private val audioBuffer = mutableListOf<Short>()
+	private suspend fun processSession(session: CaptureService.CapturedAudioSession) {
+		latestSamples = session.samples
+		_uiState.value = _uiState.value.copy(
+			isProcessing = true, audioHealth = session.health, segments = emptyList(),
+			error = session.health.error,
+		)
+		if (!session.health.isValid) {
+			_uiState.value = _uiState.value.copy(isProcessing = false)
+			return
+		}
+		modelLoadJob.join()
+		if (!_uiState.value.isModelReady) {
+			_uiState.value = _uiState.value.copy(isProcessing = false, error = CaptureError.MODEL_NOT_LOADED)
+			return
+		}
+		val transcription = whisperEngine.transcribe(session.samples, language = "auto")
+		val originalSegments = transcription.getOrElse {
+			_uiState.value = _uiState.value.copy(isProcessing = false, error = CaptureError.ASR_EMPTY_RESULT)
+			return
+		}
+		if (originalSegments.isEmpty()) {
+			_uiState.value = _uiState.value.copy(isProcessing = false, error = CaptureError.NO_SPEECH_DETECTED)
+			return
+		}
 
- fun bindService(service: CaptureService) {
- captureService = service
- viewModelScope.launch {
- service.captureState.collect { state ->
- when (state) {
- CaptureService.CaptureState.Capturing -> {
- _uiState.value = _uiState.value.copy(isCapturing = true)
- vad.reset()
- audioBuffer.clear()
- }
- CaptureService.CaptureState.Idle,
- CaptureService.CaptureState.Stopping -> {
- _uiState.value = _uiState.value.copy(isCapturing = false)
- processCollectedAudio()
- }
- CaptureService.CaptureState.RequestingPermission,
- CaptureService.CaptureState.Error -> {
- _uiState.value = _uiState.value.copy(isCapturing = false)
- }
- }
- }
- }
- }
+		val translated = mutableListOf<TranscriptionSegment>()
+		for (segment in originalSegments) {
+			val translatedText = if (segment.language == motherTongue.tag) {
+				segment.text
+			} else {
+				translationEngine.initialize(segment.language.ifBlank { "en" }, motherTongue.tag)
+					.fold(
+						onSuccess = { translationEngine.translate(segment.text).getOrNull() },
+						onFailure = { null },
+					)
+			}
+			translated += segment.copy(translatedText = translatedText)
+			_uiState.value = _uiState.value.copy(segments = translated.toList())
+		}
+		withContext(Dispatchers.IO) {
+			sessionRepository.insertSession(SessionEntity(
+				sourceLanguage = originalSegments.first().language,
+				targetLanguage = motherTongue.tag,
+				durationMs = session.health.durationMs,
+				segmentCount = originalSegments.size,
+			))
+		}
+		_uiState.value = _uiState.value.copy(
+			isProcessing = false,
+			error = if (translated.any { it.translatedText == null }) CaptureError.TRANSLATION_FAILED else null,
+		)
+	}
 
- fun unbindService() {
- captureService = null
- }
+	fun finishCapture(context: Context) {
+		context.startService(Intent(context, CaptureService::class.java).setAction(CaptureService.ACTION_FINISH))
+	}
 
- fun stopCapture(context: Context) {
- val intent = Intent(context, CaptureService::class.java).apply {
- action = CaptureService.ACTION_STOP
- }
- context.startService(intent)
- }
+	fun stopLearningMode(context: Context) {
+		context.startService(Intent(context, CaptureService::class.java).setAction(CaptureService.ACTION_STOP))
+	}
 
- fun translateSegment(segment: TranscriptionSegment) {
- if (segment.translatedText != null) return
+	fun playSegment(segment: TranscriptionSegment) {
+		val start = (segment.startTimeMs * CaptureService.SAMPLE_RATE_HZ / 1000).toInt().coerceIn(0, latestSamples.size)
+		val end = (segment.endTimeMs * CaptureService.SAMPLE_RATE_HZ / 1000).toInt().coerceIn(start, latestSamples.size)
+		if (end <= start) return
+		player?.release()
+		val attributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()
+		val format = AudioFormat.Builder().setSampleRate(CaptureService.SAMPLE_RATE_HZ)
+			.setEncoding(AudioFormat.ENCODING_PCM_16BIT).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build()
+		player = AudioTrack.Builder().setAudioAttributes(attributes).setAudioFormat(format)
+			.setBufferSizeInBytes((end - start) * 2).setTransferMode(AudioTrack.MODE_STATIC).build().also {
+				it.write(latestSamples, start, end - start); it.play()
+			}
+	}
 
- val startMs = segment.startTimeMs
- _uiState.value = _uiState.value.copy(
- translatingIds = _uiState.value.translatingIds + startMs
- )
+	fun saveDebugWav(context: Context) {
+		if (latestSamples.isEmpty()) return
+		viewModelScope.launch(Dispatchers.IO) {
+			val directory = File(context.getExternalFilesDir(null), "diagnostics").apply { mkdirs() }
+			val cutoff = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
+			directory.listFiles()?.filter { it.lastModified() < cutoff }?.forEach { it.delete() }
+			val sampleCount = minOf(latestSamples.size, CaptureService.SAMPLE_RATE_HZ * 10)
+			val start = latestSamples.size - sampleCount
+			val file = File(directory, "capture-${System.currentTimeMillis()}.wav")
+			file.writeBytes(Pcm16.wav(latestSamples.copyOfRange(start, latestSamples.size), CaptureService.SAMPLE_RATE_HZ))
+			_uiState.value = _uiState.value.copy(debugMessage = "Saved ${file.name} in app diagnostics storage")
+		}
+	}
 
- viewModelScope.launch {
- val result = translationEngine.translate(segment.text)
- result.onSuccess { translated ->
- val updatedSegments = _uiState.value.segments.map {
- if (it.startTimeMs == startMs) it.copy(translatedText = translated) else it
- }
- _uiState.value = _uiState.value.copy(
- segments = updatedSegments,
- translatingIds = _uiState.value.translatingIds - startMs,
- )
- }.onFailure {
- _uiState.value = _uiState.value.copy(
- translatingIds = _uiState.value.translatingIds - startMs,
- )
- }
- }
- }
+	fun runKnownGoodAsrTest(context: Context) {
+		if (!_uiState.value.isModelReady || _uiState.value.isProcessing) return
+		viewModelScope.launch {
+			_uiState.value = _uiState.value.copy(isProcessing = true, debugMessage = "Running known-good JFK sample…")
+			val result = withContext(Dispatchers.IO) {
+				runCatching {
+					val wav = Pcm16.readWav(context.assets.open("jfk.wav").use { it.readBytes() })
+					val mono = if (wav.channels == 2) Pcm16.stereoToMono(wav.samples) else wav.samples
+					val samples = Pcm16.resampleLinear(mono, wav.sampleRate, CaptureService.SAMPLE_RATE_HZ)
+					whisperEngine.transcribe(samples, "en").getOrThrow().joinToString(" ") { it.text }
+				}
+			}
+			_uiState.value = _uiState.value.copy(
+				isProcessing = false,
+				debugMessage = result.fold(
+					onSuccess = { if (it.isBlank()) "Known-good ASR returned no text" else "Known-good ASR: $it" },
+					onFailure = { "Known-good ASR failed: ${it.message}" },
+				),
+			)
+		}
+	}
 
- private fun processCollectedAudio() {
- val samples = audioBuffer.toShortArray()
- audioBuffer.clear()
- if (samples.isEmpty()) return
-
- viewModelScope.launch {
- vad.process(samples, 0, samples.size)
- val vadSegments = vad.finalize()
- if (vadSegments.isNotEmpty()) {
- val existingSegments = _uiState.value.segments.toMutableList()
- for (seg in vadSegments) {
- val startSample = seg.startSample.toInt()
- val endSample = seg.endSample.toInt()
- val segmentSamples = samples.sliceArray(startSample until minOf(endSample, samples.size))
- val text = runTranscription(segmentSamples)
- if (text.isNotBlank()) {
- existingSegments.add(
- TranscriptionSegment(
- text = text,
- startTimeMs = seg.startSample,
- endTimeMs = seg.endSample,
- language = "",
- )
- )
- }
- }
- _uiState.value = _uiState.value.copy(segments = existingSegments)
- }
- }
- }
-
- private suspend fun runTranscription(samples: ShortArray): String {
- return try {
- val result = whisperEngine.transcribe(samples)
- result.getOrNull()?.firstOrNull()?.text ?: ""
- } catch (e: Exception) {
- ""
- }
- }
-
- fun addAudioSamples(samples: ShortArray) {
- audioBuffer.addAll(samples.toList())
- }
-
- override fun onCleared() {
- super.onCleared()
- unbindService()
- }
+	override fun onCleared() {
+		player?.release()
+		translationEngine.close()
+		super.onCleared()
+	}
 }
 
 data class HomeUiState(
- val isCapturing: Boolean = false,
- val segments: List<TranscriptionSegment> = emptyList(),
- val translatingIds: Set<Long> = emptySet(),
+	val captureState: CaptureService.CaptureState = CaptureService.CaptureState.Idle,
+	val captureDurationMs: Long = 0,
+	val isProcessing: Boolean = false,
+	val isModelReady: Boolean = false,
+	val modelName: String? = null,
+	val modelError: String? = null,
+	val segments: List<TranscriptionSegment> = emptyList(),
+	val audioHealth: AudioHealth? = null,
+	val error: CaptureError? = null,
+	val debugMessage: String? = null,
 )

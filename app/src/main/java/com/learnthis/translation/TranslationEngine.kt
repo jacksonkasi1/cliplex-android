@@ -1,6 +1,6 @@
 package com.learnthis.translation
 
-import android.content.Context
+import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.nl.translate.TranslateLanguage
 import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.Translator
@@ -27,7 +27,6 @@ class TranslationEngine private constructor() {
  private var currentTargetLang: String? = null
 
  suspend fun initialize(
- context: Context,
  sourceLang: String,
  targetLang: String,
  ): Result<Unit> = suspendCancellableCoroutine { cont ->
@@ -57,11 +56,14 @@ class TranslationEngine private constructor() {
  .setTargetLanguage(targetCode)
  .build()
 
- translator = Translation.getClient(options)
+ val createdTranslator = Translation.getClient(options)
+ translator = createdTranslator
  currentSourceLang = sourceLang
  currentTargetLang = targetLang
-
- cont.resume(Result.success(Unit))
+ val conditions = DownloadConditions.Builder().build()
+ createdTranslator.downloadModelIfNeeded(conditions)
+ .addOnSuccessListener { if (cont.isActive) cont.resume(Result.success(Unit)) }
+ .addOnFailureListener { error -> if (cont.isActive) cont.resume(Result.failure(error)) }
  } catch (e: Exception) {
  cont.resumeWithException(e)
  }
@@ -80,8 +82,8 @@ class TranslationEngine private constructor() {
  }
 
  translator.translate(text)
- .addOnSuccessListener { result -> cont.resume(Result.success(result)) }
- .addOnFailureListener { e -> cont.resume(Result.failure(e)) }
+ .addOnSuccessListener { result -> if (cont.isActive) cont.resume(Result.success(result)) }
+ .addOnFailureListener { e -> if (cont.isActive) cont.resume(Result.failure(e)) }
  }
 
  suspend fun translateBatch(texts: List<String>): Result<List<String>> = suspendCancellableCoroutine { cont ->
@@ -129,28 +131,31 @@ class TranslationEngine private constructor() {
  }
 
  private fun languageCode(language: String): String? {
+ TranslateLanguage.fromLanguageTag(language.lowercase())?.let { return it }
  return when (language.lowercase()) {
- "english" -> TranslateLanguage.ENGLISH
- "spanish" -> TranslateLanguage.SPANISH
- "french" -> TranslateLanguage.FRENCH
- "german" -> TranslateLanguage.GERMAN
- "italian" -> TranslateLanguage.ITALIAN
- "portuguese" -> TranslateLanguage.PORTUGUESE
- "dutch" -> TranslateLanguage.DUTCH
- "russian" -> TranslateLanguage.RUSSIAN
- "japanese" -> TranslateLanguage.JAPANESE
- "korean" -> TranslateLanguage.KOREAN
- "chinese" -> TranslateLanguage.CHINESE
- "arabic" -> TranslateLanguage.ARABIC
- "hindi" -> TranslateLanguage.HINDI
- "bengali" -> TranslateLanguage.BENGALI
+ "en", "english" -> TranslateLanguage.ENGLISH
+ "es", "spanish" -> TranslateLanguage.SPANISH
+ "fr", "french" -> TranslateLanguage.FRENCH
+ "de", "german" -> TranslateLanguage.GERMAN
+ "it", "italian" -> TranslateLanguage.ITALIAN
+ "pt", "portuguese" -> TranslateLanguage.PORTUGUESE
+ "nl", "dutch" -> TranslateLanguage.DUTCH
+ "ru", "russian" -> TranslateLanguage.RUSSIAN
+ "ja", "japanese" -> TranslateLanguage.JAPANESE
+ "ko", "korean" -> TranslateLanguage.KOREAN
+ "zh", "chinese" -> TranslateLanguage.CHINESE
+ "ar", "arabic" -> TranslateLanguage.ARABIC
+ "hi", "hindi" -> TranslateLanguage.HINDI
+ "bn", "bengali" -> TranslateLanguage.BENGALI
  "turkish" -> TranslateLanguage.TURKISH
  "vietnamese" -> TranslateLanguage.VIETNAMESE
  "thai" -> TranslateLanguage.THAI
  "indonesian" -> TranslateLanguage.INDONESIAN
  "malay" -> TranslateLanguage.MALAY
- "tamil" -> TranslateLanguage.TAMIL
- "telugu" -> TranslateLanguage.TELUGU
+ "ta", "tamil" -> TranslateLanguage.TAMIL
+ "te", "telugu" -> TranslateLanguage.TELUGU
+ "kn", "kannada" -> TranslateLanguage.KANNADA
+ "mr", "marathi" -> TranslateLanguage.MARATHI
  "urdu" -> TranslateLanguage.URDU
  "persian" -> TranslateLanguage.PERSIAN
  "polish" -> TranslateLanguage.POLISH

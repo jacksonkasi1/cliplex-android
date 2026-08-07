@@ -61,5 +61,6 @@ enum class AppLanguage(val tag: String, val displayName: String, val translation
 
  companion object {
  fun fromTag(tag: String?) = entries.firstOrNull { it.tag == tag }
+ val onboardingLanguages = listOf(TAMIL, HINDI, ENGLISH, TELUGU, MALAYALAM, KANNADA, BENGALI, MARATHI)
  }
 }

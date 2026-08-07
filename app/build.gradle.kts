@@ -1,8 +1,8 @@
 plugins {
- id("com.android.application")
- id("org.jetbrains.kotlin.android")
- id("org.jetbrains.kotlin.plugin.compose")
- id("org.jetbrains.kotlin.kapt")
+	id("com.android.application")
+	id("org.jetbrains.kotlin.android")
+	id("org.jetbrains.kotlin.plugin.compose")
+	id("org.jetbrains.kotlin.kapt")
 }
 
 android {
@@ -31,13 +31,14 @@ android {
  "-DWHISPER_BUILD_EXAMPLES=OFF",
  "-DWHISPER_BUILD_SERVER=OFF",
  "-DGGML_NATIVE=OFF",
- "-DGGML_CPU_KLEIDIAI=ON"
+ "-DGGML_CPU_KLEIDIAI=OFF"
  )
  }
  }
  }
 
  sourceSets.getByName("main").assets.srcDir(rootProject.file("models"))
+ sourceSets.getByName("debug").assets.srcDir(rootProject.file("native/whisper.cpp/samples"))
  androidResources.noCompress += "bin"
 
  flavorDimensions += "permissionMode"

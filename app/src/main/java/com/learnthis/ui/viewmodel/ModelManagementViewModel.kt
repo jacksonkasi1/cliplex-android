@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 data class ModelItemUiState(
 	val modelType: ModelType,
@@ -26,6 +29,7 @@ data class ModelManagementUiState(
 class ModelManagementViewModel(
 	private val modelRepository: ModelRepository
 ) : ViewModel() {
+	private val downloadJobs = mutableMapOf<ModelType, Job>()
 
 	private val _uiState = MutableStateFlow(ModelManagementUiState())
 	val uiState: StateFlow<ModelManagementUiState> = _uiState.asStateFlow()
@@ -36,11 +40,15 @@ class ModelManagementViewModel(
 
 	private fun checkDownloadedModels() {
 		viewModelScope.launch {
-			val updatedModels = ModelType.entries.map { type ->
-				ModelItemUiState(
-					modelType = type,
-					isDownloaded = modelRepository.isModelAvailable(type)
-				)
+			val updatedModels = withContext(Dispatchers.IO) {
+				ModelType.entries.map { type ->
+					val downloaded = modelRepository.isModelAvailable(type)
+					ModelItemUiState(
+						modelType = type,
+						isDownloaded = downloaded,
+						progress = if (downloaded) ModelDownloadProgress.Ready else ModelDownloadProgress.Idle,
+					)
+				}
 			}
 			_uiState.value = _uiState.value.copy(
 				models = updatedModels,
@@ -50,14 +58,18 @@ class ModelManagementViewModel(
 	}
 
 	fun downloadModel(modelType: ModelType) {
-		viewModelScope.launch {
+		if (downloadJobs[modelType]?.isActive == true) return
+		downloadJobs[modelType] = viewModelScope.launch {
 			_uiState.value = _uiState.value.updateModel(modelType) {
 				it.copy(progress = ModelDownloadProgress.Downloading(0, modelType.fileSizeBytes))
 			}
 
 			modelRepository.getDownloadProgress(modelType).collect { progress ->
 				_uiState.value = _uiState.value.updateModel(modelType) {
-					it.copy(progress = progress)
+					it.copy(
+						progress = progress,
+						isDownloaded = progress is ModelDownloadProgress.Ready,
+					)
 				}
 			}
 		}

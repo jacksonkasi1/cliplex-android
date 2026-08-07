@@ -12,23 +12,21 @@ enum class ModelType(
 	val fileName: String,
 	val displayName: String,
 	val fileSizeBytes: Long,
+	val sha256: String,
 	val isDefault: Boolean = false
 ) {
 	TINY_Q5_1(
 		fileName = "ggml-tiny-q5_1.bin",
 		displayName = "Whisper Tiny (Q5_1) — ~75 MB",
-		fileSizeBytes = 75L * 1024 * 1024,
+		fileSizeBytes = 32_152_673L,
+		sha256 = "818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7",
 		isDefault = true
 	),
 	BASE_Q5_1(
 		fileName = "ggml-base-q5_1.bin",
 		displayName = "Whisper Base (Q5_1) — ~150 MB",
-		fileSizeBytes = 150L * 1024 * 1024
-	),
-	BASE_Q8_0(
-		fileName = "ggml-base-q8_0.bin",
-		displayName = "Whisper Base (Q8_0) — ~250 MB",
-		fileSizeBytes = 250L * 1024 * 1024
+		fileSizeBytes = 59_707_625L,
+		sha256 = "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898"
 	);
 
 	val downloadUrl: String

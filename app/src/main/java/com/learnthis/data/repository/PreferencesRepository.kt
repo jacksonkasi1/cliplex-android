@@ -27,7 +27,7 @@ class PreferencesRepository(private val dataStore: DataStore<Preferences>) {
  }
 
  val selectedLanguage: Flow<AppLanguage?> = dataStore.data.map { prefs ->
- prefs[SELECTED_LANGUAGE]?.let { AppLanguage.valueOf(it) }
+ prefs[SELECTED_LANGUAGE]?.let { AppLanguage.fromTag(it) }
  }
 
  val autoTranslate: Flow<Boolean> = dataStore.data.map { prefs ->
@@ -42,8 +42,10 @@ class PreferencesRepository(private val dataStore: DataStore<Preferences>) {
  dataStore.edit { prefs -> prefs[ONBOARDING_COMPLETED] = if (completed) "true" else "false" }
  }
 
+ suspend fun restartOnboarding() = setOnboardingCompleted(false)
+
  suspend fun saveSelectedLanguage(language: AppLanguage) {
- dataStore.edit { prefs -> prefs[SELECTED_LANGUAGE] = language.name }
+ dataStore.edit { prefs -> prefs[SELECTED_LANGUAGE] = language.tag }
  }
 
  suspend fun saveAutoTranslate(enabled: Boolean) {
