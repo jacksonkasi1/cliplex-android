@@ -1,5 +1,6 @@
 package com.learnthis.service
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -7,6 +8,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioPlaybackCaptureConfiguration
@@ -16,10 +18,14 @@ import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
+import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
+import androidx.core.content.ContextCompat
 import com.learnthis.BuildConfig
 import com.learnthis.MainActivity
 import com.learnthis.audio.AudioDiagnostics
+import com.learnthis.audio.Pcm16
 import com.learnthis.domain.model.AudioHealth
 import com.learnthis.domain.model.CaptureError
 import com.learnthis.overlay.OverlayService
@@ -44,6 +50,7 @@ class CaptureService : Service() {
 		const val ACTION_FINISH = "com.learnthis.action.FINISH_CAPTURE"
 		const val ACTION_TOGGLE = "com.learnthis.action.TOGGLE_CAPTURE"
 		const val ACTION_STOP = "com.learnthis.action.STOP_LEARNING_MODE"
+		const val ACTION_REFRESH_OVERLAY = "com.learnthis.action.REFRESH_OVERLAY"
 		const val EXTRA_MEDIA_PROJECTION_RESULT_DATA = "media_projection_result_data"
 		const val EXTRA_MEDIA_PROJECTION_RESULT_CODE = "media_projection_result_code"
 		const val SAMPLE_RATE_HZ = 16_000
@@ -58,6 +65,18 @@ class CaptureService : Service() {
 		private val _latestSession = MutableStateFlow<CapturedAudioSession?>(null)
 		val latestSession: StateFlow<CapturedAudioSession?> = _latestSession.asStateFlow()
 		private val sessionIds = AtomicLong()
+		private val _overlayStatus = MutableStateFlow<OverlayStatus>(OverlayStatus.Unavailable)
+		val overlayStatus: StateFlow<OverlayStatus> = _overlayStatus.asStateFlow()
+
+		internal fun reportOverlayVisible() { _overlayStatus.value = OverlayStatus.Visible }
+		internal fun reportOverlayError(detail: String) { _overlayStatus.value = OverlayStatus.Error(detail) }
+	}
+
+	sealed interface OverlayStatus {
+		data object Unavailable : OverlayStatus
+		data object Disabled : OverlayStatus
+		data object Visible : OverlayStatus
+		data class Error(val detail: String) : OverlayStatus
 	}
 
 	sealed interface CaptureState {
@@ -82,6 +101,7 @@ class CaptureService : Service() {
 	private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 	private val ringBuffer = RingBuffer(MAX_CAPTURE_SAMPLES)
 	private var audioCaptureBuffer = ShortArray(0)
+	private var captureFormat = CaptureFormat(SAMPLE_RATE_HZ, CHANNEL_CONFIG, 1)
 	@Volatile private var intentionallyStopping = false
 
 	override fun onBind(intent: Intent?): IBinder? = null
@@ -101,7 +121,12 @@ class CaptureService : Service() {
 					@Suppress("DEPRECATION")
 					intent.getParcelableExtra(EXTRA_MEDIA_PROJECTION_RESULT_DATA)
 				}
-				startForeground(NOTIFICATION_ID, buildNotification(CaptureState.Preparing))
+				ServiceCompat.startForeground(
+					this,
+					NOTIFICATION_ID,
+					buildNotification(CaptureState.Preparing),
+					ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION,
+				)
 				if (resultCode == -1 || resultData == null) {
 					fail(CaptureError.CAPTURE_NOT_STARTED, "MediaProjection consent data was missing")
 				} else {
@@ -111,6 +136,10 @@ class CaptureService : Service() {
 			ACTION_BEGIN -> beginSession()
 			ACTION_FINISH -> finishSession()
 			ACTION_TOGGLE -> if (_captureState.value == CaptureState.Capturing) finishSession() else beginSession()
+			ACTION_REFRESH_OVERLAY -> {
+				refreshOverlay()
+				if (_captureState.value == CaptureState.Idle || _captureState.value is CaptureState.Error) stopSelf(startId)
+			}
 			ACTION_STOP -> stopLearningMode()
 		}
 		return START_NOT_STICKY
@@ -120,6 +149,11 @@ class CaptureService : Service() {
 		if (_captureState.value != CaptureState.Idle && _captureState.value !is CaptureState.Error) return
 		_captureState.value = CaptureState.Preparing
 		intentionallyStopping = false
+		if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) !=
+			android.content.pm.PackageManager.PERMISSION_GRANTED) {
+			fail(CaptureError.CAPTURE_NOT_STARTED, "Record audio permission was not granted")
+			return
+		}
 		try {
 			val projectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
 			val projection = projectionManager.getMediaProjection(resultCode, resultData)
@@ -143,35 +177,59 @@ class CaptureService : Service() {
 				.addMatchingUsage(AudioAttributes.USAGE_GAME)
 				.addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
 				.build()
-			val minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE_HZ, CHANNEL_CONFIG, AUDIO_FORMAT)
-			if (minBufferSize <= 0) {
-				fail(CaptureError.AUDIO_FORMAT_INVALID, "getMinBufferSize returned $minBufferSize")
-				return
-			}
-			val bufferSize = maxOf(minBufferSize * 4, SAMPLE_RATE_HZ * 2)
-			audioCaptureBuffer = ShortArray(bufferSize / 2)
-			val recorder = AudioRecord.Builder()
-				.setAudioFormat(AudioFormat.Builder()
-					.setEncoding(AUDIO_FORMAT)
-					.setSampleRate(SAMPLE_RATE_HZ)
-					.setChannelMask(CHANNEL_CONFIG)
-					.build())
-				.setAudioPlaybackCaptureConfig(config)
-				.setBufferSizeInBytes(bufferSize)
-				.build()
-			if (recorder.state != AudioRecord.STATE_INITIALIZED) {
-				recorder.release()
+			val configured = createAudioRecord(config)
+			if (configured == null) {
 				fail(CaptureError.CAPTURE_NOT_STARTED, "AudioRecord did not initialize")
 				return
 			}
+			val recorder = configured.record
+			captureFormat = configured.format
+			audioCaptureBuffer = ShortArray(configured.readBufferSamples)
 			audioRecord = recorder
 			captureJob = serviceScope.launch(Dispatchers.IO) { processAudioStream(recorder) }
-			showOverlayIfAllowed()
 		} catch (security: SecurityException) {
 			fail(CaptureError.CAPTURE_NOT_STARTED, security.message)
 		} catch (error: Exception) {
 			fail(CaptureError.CAPTURE_NOT_STARTED, error.message)
 		}
+	}
+
+	private fun createAudioRecord(config: AudioPlaybackCaptureConfiguration): ConfiguredAudioRecord? {
+		if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) !=
+			android.content.pm.PackageManager.PERMISSION_GRANTED) return null
+		val candidates = listOf(
+			CaptureFormat(48_000, AudioFormat.CHANNEL_IN_STEREO, 2),
+			CaptureFormat(48_000, AudioFormat.CHANNEL_IN_MONO, 1),
+			CaptureFormat(44_100, AudioFormat.CHANNEL_IN_STEREO, 2),
+			CaptureFormat(44_100, AudioFormat.CHANNEL_IN_MONO, 1),
+			CaptureFormat(SAMPLE_RATE_HZ, CHANNEL_CONFIG, 1),
+		)
+		for (format in candidates) {
+			val minimum = AudioRecord.getMinBufferSize(format.sampleRate, format.channelMask, AUDIO_FORMAT)
+			if (minimum <= 0) continue
+			val bufferSize = maxOf(minimum * 4, format.sampleRate * format.channelCount)
+			val desiredReadSamples = maxOf(minimum / 2, format.sampleRate * format.channelCount / 10)
+			val readBufferSamples = desiredReadSamples - (desiredReadSamples % format.channelCount)
+			try {
+				val record = AudioRecord.Builder()
+					.setAudioFormat(AudioFormat.Builder()
+						.setEncoding(AUDIO_FORMAT)
+						.setSampleRate(format.sampleRate)
+						.setChannelMask(format.channelMask)
+						.build())
+					.setAudioPlaybackCaptureConfig(config)
+					.setBufferSizeInBytes(bufferSize)
+					.build()
+				if (record.state == AudioRecord.STATE_INITIALIZED) {
+					Log.i("CaptureService", "Playback capture format=${format.sampleRate}Hz channels=${format.channelCount} buffer=$bufferSize")
+					return ConfiguredAudioRecord(record, format, readBufferSamples)
+				}
+				record.release()
+			} catch (error: Exception) {
+				Log.w("CaptureService", "Capture format rejected: $format", error)
+			}
+		}
+		return null
 	}
 
 	private fun processAudioStream(recorder: AudioRecord) {
@@ -183,10 +241,14 @@ class CaptureService : Service() {
 			}
 			_captureState.value = CaptureState.Armed
 			updateNotification()
+			serviceScope.launch { refreshOverlay() }
 			while (!Thread.currentThread().isInterrupted) {
 				val read = recorder.read(audioCaptureBuffer, 0, audioCaptureBuffer.size, AudioRecord.READ_BLOCKING)
 				if (read > 0 && _captureState.value == CaptureState.Capturing) {
-					ringBuffer.write(audioCaptureBuffer, read)
+					val input = audioCaptureBuffer.copyOf(read)
+					val mono = if (captureFormat.channelCount == 2) Pcm16.stereoToMono(input) else input
+					val targetPcm = Pcm16.resampleLinear(mono, captureFormat.sampleRate, SAMPLE_RATE_HZ)
+					ringBuffer.write(targetPcm, targetPcm.size)
 					_capturedAudioDuration.value = ringBuffer.size * 1000L / SAMPLE_RATE_HZ
 					if (ringBuffer.size >= MAX_CAPTURE_SAMPLES) serviceScope.launch { finishSession() }
 				} else if (read < 0) {
@@ -205,6 +267,7 @@ class CaptureService : Service() {
 		_capturedAudioDuration.value = 0L
 		_captureState.value = CaptureState.Capturing
 		updateNotification()
+		refreshOverlay()
 	}
 
 	private fun finishSession() {
@@ -215,6 +278,7 @@ class CaptureService : Service() {
 		_latestSession.value = CapturedAudioSession(sessionIds.incrementAndGet(), samples, health)
 		_captureState.value = CaptureState.Armed
 		updateNotification()
+		refreshOverlay()
 	}
 
 	private fun fail(error: CaptureError, detail: String?) {
@@ -250,14 +314,21 @@ class CaptureService : Service() {
 		if (stopProjection) try { projection?.stop() } catch (_: Exception) { }
 	}
 
-	private fun showOverlayIfAllowed() {
-		if (BuildConfig.OVERLAY_SUPPORTED && Settings.canDrawOverlays(this)) {
+	private fun refreshOverlay() {
+		val learningModeActive = _captureState.value == CaptureState.Armed ||
+			_captureState.value == CaptureState.Capturing ||
+			_captureState.value == CaptureState.Processing
+		if (learningModeActive && BuildConfig.OVERLAY_SUPPORTED && Settings.canDrawOverlays(this)) {
+			_overlayStatus.value = OverlayStatus.Unavailable
 			startService(Intent(this, OverlayService::class.java).setAction(OverlayService.ACTION_SHOW_OVERLAY))
+		} else {
+			_overlayStatus.value = if (learningModeActive) OverlayStatus.Disabled else OverlayStatus.Unavailable
+			hideOverlay()
 		}
 	}
 
 	private fun hideOverlay() {
-		startService(Intent(this, OverlayService::class.java).setAction(OverlayService.ACTION_HIDE_OVERLAY))
+		stopService(Intent(this, OverlayService::class.java))
 	}
 
 	private fun createNotificationChannel() {
@@ -333,4 +404,7 @@ class CaptureService : Service() {
 			}
 		}
 	}
+
+	private data class CaptureFormat(val sampleRate: Int, val channelMask: Int, val channelCount: Int)
+	private data class ConfiguredAudioRecord(val record: AudioRecord, val format: CaptureFormat, val readBufferSamples: Int)
 }

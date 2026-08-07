@@ -22,9 +22,11 @@ import com.learnthis.translation.TranslationEngine
 import com.learnthis.whisper.WhisperEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -39,25 +41,20 @@ class HomeViewModel(
 	private val _uiState = MutableStateFlow(HomeUiState())
 	val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 	private var motherTongue: AppLanguage = AppLanguage.ENGLISH
-	private var modelLoadJob: Job
+	private var modelLoadJob: Job = Job().apply { complete() }
 	private var processedSessionId = 0L
 	private var latestSamples = ShortArray(0)
 	private var player: AudioTrack? = null
 
 	init {
-		modelLoadJob = viewModelScope.launch(Dispatchers.IO) {
-			val type = if (modelRepository.isModelAvailable(ModelType.TINY_Q5_1)) {
-				ModelType.TINY_Q5_1
-			} else modelRepository.listDownloadedModels().firstOrNull()
-			if (type == null) {
-				_uiState.value = _uiState.value.copy(modelError = "No speech model is installed")
-			} else {
-				val result = whisperEngine.loadModel(modelRepository.getModelFile(type).absolutePath)
-				_uiState.value = _uiState.value.copy(
-					isModelReady = result.isSuccess,
-					modelName = if (result.isSuccess) type.displayName else null,
-					modelError = result.exceptionOrNull()?.message,
-				)
+		viewModelScope.launch {
+			preferencesRepository.activeModel.distinctUntilChanged().collect { type ->
+				modelLoadJob.cancelAndJoin()
+				if (type == null) {
+					_uiState.value = _uiState.value.copy(isModelReady = false, modelName = null, modelError = "Select a speech model in Settings")
+				} else {
+					modelLoadJob = loadModel(type)
+				}
 			}
 		}
 		viewModelScope.launch {
@@ -77,6 +74,11 @@ class HomeViewModel(
 			}
 		}
 		viewModelScope.launch {
+			CaptureService.overlayStatus.collect { status ->
+				_uiState.value = _uiState.value.copy(overlayStatus = status)
+			}
+		}
+		viewModelScope.launch {
 			CaptureService.latestSession.collect { session ->
 				if (session != null && session.id > processedSessionId) {
 					processedSessionId = session.id
@@ -84,6 +86,20 @@ class HomeViewModel(
 				}
 			}
 		}
+	}
+
+	private fun loadModel(type: ModelType): Job = viewModelScope.launch(Dispatchers.IO) {
+		_uiState.value = _uiState.value.copy(isModelReady = false, modelName = type.displayName, modelError = null)
+		if (!modelRepository.isModelAvailable(type)) {
+			_uiState.value = _uiState.value.copy(modelError = "Selected model is missing. Choose another model in Settings.")
+			return@launch
+		}
+		val result = whisperEngine.loadModel(modelRepository.getModelFile(type).absolutePath)
+		_uiState.value = _uiState.value.copy(
+			isModelReady = result.isSuccess,
+			modelName = type.displayName,
+			modelError = result.exceptionOrNull()?.message,
+		)
 	}
 
 	private suspend fun processSession(session: CaptureService.CapturedAudioSession) {
@@ -215,4 +231,5 @@ data class HomeUiState(
 	val audioHealth: AudioHealth? = null,
 	val error: CaptureError? = null,
 	val debugMessage: String? = null,
+	val overlayStatus: CaptureService.OverlayStatus = CaptureService.OverlayStatus.Unavailable,
 )

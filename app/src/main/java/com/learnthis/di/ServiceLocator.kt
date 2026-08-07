@@ -30,7 +30,7 @@ class ServiceLocator private constructor(private val context: Context) {
 	val translationEngine: TranslationEngine by lazy { TranslationEngine.getInstance() }
 
 	val modelManagementViewModelFactory: ViewModelProvider.Factory by lazy {
-		SimpleFactory { ModelManagementViewModel(modelRepository) }
+		SimpleFactory { ModelManagementViewModel(modelRepository, preferencesRepository) }
 	}
 	val homeViewModelFactory: ViewModelProvider.Factory by lazy {
 		SimpleFactory {

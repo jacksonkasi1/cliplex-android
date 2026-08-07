@@ -17,6 +17,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -51,8 +53,10 @@ fun HomeScreen(
 	homeViewModel: HomeViewModel,
 	onStartLearning: () -> Unit,
 	onBeginCapture: () -> Unit,
-	onChangeLanguage: () -> Unit,
 	onOpenHistory: () -> Unit,
+	onOpenSettings: () -> Unit,
+	overlayGranted: Boolean,
+	setupMessage: String?,
 	modifier: Modifier = Modifier,
 ) {
 	val context = LocalContext.current
@@ -61,8 +65,8 @@ fun HomeScreen(
 		topBar = { TopAppBar(
 			title = { Text("Learn from any video") },
 			actions = {
-				TextButton(onClick = onOpenHistory) { Text("History") }
-				TextButton(onClick = onChangeLanguage) { Text("Language") }
+				IconButton(onClick = onOpenHistory) { Icon(Icons.Default.History, "History") }
+				IconButton(onClick = onOpenSettings) { Icon(Icons.Default.Settings, "Settings") }
 			},
 		) },
 		modifier = modifier,
@@ -75,7 +79,7 @@ fun HomeScreen(
 			item {
 				Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
 					Text("Mother tongue: ${selectedLanguage?.displayName ?: "Not selected"}", fontWeight = FontWeight.Bold)
-					Text(if (state.isModelReady) "Speech model: ready" else "Speech model: loading…")
+					Text(if (state.isModelReady) "Model: ${state.modelName ?: "Selected"}" else "Speech model: loading…")
 					state.modelError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 					Text("Audio is processed temporarily on this device and is not uploaded.", style = MaterialTheme.typography.bodySmall)
 					if (BuildConfig.DEBUG) {
@@ -86,9 +90,12 @@ fun HomeScreen(
 					}
 				} }
 			}
+			setupMessage?.let { message -> item {
+				Card(Modifier.fillMaxWidth()) { Text(message, Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error) }
+			} }
 			item {
 				Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-					Text(statusText(state.captureState, state.captureDurationMs, state.isProcessing))
+					Text(statusText(state.captureState, state.captureDurationMs, state.isProcessing, state.overlayStatus, overlayGranted))
 					when (state.captureState) {
 						CaptureService.CaptureState.Idle, is CaptureService.CaptureState.Error ->
 							Button(onClick = onStartLearning, enabled = state.isModelReady) { Text("Start Learning Mode") }
@@ -128,9 +135,19 @@ fun HomeScreen(
 	}
 }
 
-private fun statusText(state: CaptureService.CaptureState, duration: Long, processing: Boolean): String = when {
+private fun statusText(
+	state: CaptureService.CaptureState,
+	duration: Long,
+	processing: Boolean,
+	overlayStatus: CaptureService.OverlayStatus,
+	overlayGranted: Boolean,
+): String = when {
 	processing -> "Transcribing and translating on device…"
-	state == CaptureService.CaptureState.Armed -> "Ready. Play a video, then tap the floating button or Start Capture."
+	state == CaptureService.CaptureState.Armed -> when (overlayStatus) {
+		CaptureService.OverlayStatus.Visible -> "Ready. Open a video and tap the floating Learn This button."
+		is CaptureService.OverlayStatus.Error -> "Ready, but the floating button could not be shown. Use Start Capture here or the notification."
+		else -> "Ready. Play a video, then tap Start Capture${if (overlayGranted) " here while the floating button loads" else " here or in the notification"}."
+	}
 	state == CaptureService.CaptureState.Capturing -> "Capturing playback audio… ${duration / 1000}s"
 	state == CaptureService.CaptureState.Preparing -> "Preparing playback capture…"
 	state is CaptureService.CaptureState.Error -> "Learning mode stopped with an error"

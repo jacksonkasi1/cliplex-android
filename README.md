@@ -25,11 +25,11 @@ The speech model is not bundled. Select a mother tongue, then download Tiny Q5_1
 
 1. Choose one of the eight MVP mother tongues.
 2. Download Tiny Q5_1 (Base Q5_1 is optional).
-3. Start Learning Mode and approve overlay, microphone, notification, and screen-capture prompts.
+3. Start Learning Mode and approve the audio and Android screen-capture prompts. Android 14+ requires fresh screen-capture consent for each new Learning Mode session.
 4. Open a source app that permits playback capture and play spoken media.
-5. Tap the floating control or notification action to begin; tap again to finish.
+5. Tap Start Capture in Learn This or the notification. The optional floating control can be enabled from the Settings icon and tapped again to finish.
 6. Review diagnostics, transcript, translation, timestamps, replay, and the Room-backed session history.
 
-Source applications can prohibit playback capture. The app does not bypass that Android restriction and reports zero-filled/blocked capture separately from quiet audio and ASR failures.
+Source applications can prohibit playback capture. The app does not bypass that Android restriction and reports zero-filled/blocked capture separately from quiet audio and ASR failures. Capture negotiates 48 kHz, 44.1 kHz, and 16 kHz device formats, then downmixes and resamples locally to Whisper's 16 kHz mono input.
 
 See [development setup](docs/DEVELOPMENT_SETUP.md), [capture diagnostics](docs/AUDIO_CAPTURE_DIAGNOSTICS.md), and [known limitations](docs/KNOWN_LIMITATIONS.md).

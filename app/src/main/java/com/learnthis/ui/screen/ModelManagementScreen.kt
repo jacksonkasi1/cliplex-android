@@ -13,8 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowBack as AutoMirroredArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.Button
@@ -25,6 +24,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -45,7 +45,12 @@ import com.learnthis.ui.viewmodel.ModelManagementViewModel
 @Composable
 fun ModelManagementScreen(
 	onBack: () -> Unit,
-	onModelsReady: () -> Unit,
+	showBackButton: Boolean = true,
+	showSystemSettings: Boolean = false,
+	overlayGranted: Boolean = false,
+	onOpenOverlaySettings: () -> Unit = {},
+	onOpenNotificationSettings: () -> Unit = {},
+	onChangeLanguage: () -> Unit = {},
 	modifier: Modifier = Modifier
 ) {
 	val factory = (androidx.compose.ui.platform.LocalContext.current.applicationContext
@@ -58,10 +63,10 @@ fun ModelManagementScreen(
 	Scaffold(
 		topBar = {
 			TopAppBar(
-				title = { Text("Whisper Models") },
+				title = { Text(if (showSystemSettings) "Settings" else "Speech model") },
 				navigationIcon = {
-					IconButton(onClick = onBack) {
-						Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+					if (showBackButton) IconButton(onClick = onBack) {
+						Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
 					}
 				}
 			)
@@ -75,7 +80,7 @@ fun ModelManagementScreen(
 			verticalArrangement = Arrangement.spacedBy(16.dp)
 		) {
 			Text(
-				text = "Download a Whisper model for speech recognition. Tiny is fastest, Base is more accurate.",
+				text = "Choose one active model. Tiny is faster; Base can be more accurate.",
 				style = MaterialTheme.typography.bodyLarge,
 				color = MaterialTheme.colorScheme.onSurfaceVariant
 			)
@@ -92,19 +97,32 @@ fun ModelManagementScreen(
 					items(uiState.models) { modelState ->
 						ModelCard(
 							modelState = modelState,
+							isSelected = uiState.activeModel == modelState.modelType,
 							onDownload = { viewModel.downloadModel(modelState.modelType) },
+							onSelect = { viewModel.selectModel(modelState.modelType) },
 							onDelete = { viewModel.deleteModel(modelState.modelType) }
 						)
 					}
 				}
 
-				val anyReady = uiState.models.any { it.progress is ModelDownloadProgress.Ready }
-				Button(
-					onClick = onModelsReady,
-					enabled = anyReady,
-					modifier = Modifier.fillMaxWidth()
-				) {
-					Text(if (anyReady) "Continue" else "Download a model to continue")
+				if (showSystemSettings) {
+					OutlinedButton(onClick = onChangeLanguage, modifier = Modifier.fillMaxWidth()) {
+						Text("Change mother tongue")
+					}
+					Text("Floating control", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+					Text(
+						if (overlayGranted) "Allowed. The floating Learn This button will appear during Learning Mode."
+						else "Optional. Enable this to use the floating button over YouTube or Instagram.",
+						style = MaterialTheme.typography.bodySmall,
+					)
+					OutlinedButton(onClick = onOpenOverlaySettings, modifier = Modifier.fillMaxWidth()) {
+						Text(if (overlayGranted) "Floating button settings" else "Enable floating button")
+					}
+					OutlinedButton(onClick = onOpenNotificationSettings, modifier = Modifier.fillMaxWidth()) {
+						Text("Notification settings")
+					}
+				} else if (uiState.activeModel == null) {
+					Text("Download a model to continue", color = MaterialTheme.colorScheme.onSurfaceVariant)
 				}
 			}
 		}
@@ -114,7 +132,9 @@ fun ModelManagementScreen(
 @Composable
 private fun ModelCard(
 	modelState: ModelItemUiState,
+	isSelected: Boolean,
 	onDownload: () -> Unit,
+	onSelect: () -> Unit,
 	onDelete: () -> Unit,
 	modifier: Modifier = Modifier
 ) {
@@ -128,6 +148,7 @@ private fun ModelCard(
 			modifier = Modifier.fillMaxWidth(),
 			verticalAlignment = Alignment.CenterVertically
 		) {
+			if (modelState.isDownloaded) RadioButton(selected = isSelected, onClick = onSelect)
 			Column(modifier = Modifier.weight(1f)) {
 				Text(
 					text = modelState.modelType.displayName,
@@ -139,7 +160,7 @@ private fun ModelCard(
 				when (val progress = modelState.progress) {
 					is ModelDownloadProgress.Ready -> {
 						Text(
-							text = "Ready to use",
+							text = if (isSelected) "Selected" else "Downloaded",
 							style = MaterialTheme.typography.bodySmall,
 							color = MaterialTheme.colorScheme.primary
 						)
@@ -184,8 +205,9 @@ private fun ModelCard(
 
 			when {
 				modelState.progress is ModelDownloadProgress.Ready -> {
-					OutlinedButton(onClick = onDelete) {
-						Icon(Icons.Default.Delete, contentDescription = "Delete")
+					Column(horizontalAlignment = Alignment.End) {
+						if (!isSelected) OutlinedButton(onClick = onSelect) { Text("Use") }
+						IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, contentDescription = "Delete") }
 					}
 				}
 				modelState.progress is ModelDownloadProgress.Downloading -> {

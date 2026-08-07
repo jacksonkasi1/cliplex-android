@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import com.learnthis.common.AppLanguage
+import com.learnthis.domain.model.ModelType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -16,6 +17,7 @@ class PreferencesRepository(private val dataStore: DataStore<Preferences>) {
  val ONBOARDING_COMPLETED = stringPreferencesKey("onboarding_completed")
  val SELECTED_LANGUAGE = stringPreferencesKey("selected_language")
  val AUTO_TRANSLATE = booleanPreferencesKey("auto_translate")
+ val ACTIVE_MODEL = stringPreferencesKey("active_model")
  }
 
  val motherTongue: Flow<AppLanguage?> = dataStore.data.map { prefs ->
@@ -34,6 +36,10 @@ class PreferencesRepository(private val dataStore: DataStore<Preferences>) {
  prefs[AUTO_TRANSLATE] ?: true
  }
 
+ val activeModel: Flow<ModelType?> = dataStore.data.map { prefs ->
+ prefs[ACTIVE_MODEL]?.let { stored -> ModelType.entries.firstOrNull { it.name == stored } }
+ }
+
  suspend fun setMotherTongue(language: AppLanguage) {
  dataStore.edit { prefs -> prefs[MOTHER_TONGUE] = language.tag }
  }
@@ -50,5 +56,11 @@ class PreferencesRepository(private val dataStore: DataStore<Preferences>) {
 
  suspend fun saveAutoTranslate(enabled: Boolean) {
  dataStore.edit { prefs -> prefs[AUTO_TRANSLATE] = enabled }
+ }
+
+ suspend fun setActiveModel(modelType: ModelType?) {
+ dataStore.edit { prefs ->
+ if (modelType == null) prefs.remove(ACTIVE_MODEL) else prefs[ACTIVE_MODEL] = modelType.name
+ }
  }
 }

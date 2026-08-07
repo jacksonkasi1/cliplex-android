@@ -35,33 +35,36 @@ import com.learnthis.ui.viewmodel.ModelManagementViewModel
 import com.learnthis.ui.viewmodel.OnboardingViewModel
 
 class MainActivity : ComponentActivity() {
-	private var returningFromOverlaySettings = false
+	private var overlayGranted by mutableStateOf(false)
+	private var setupMessage by mutableStateOf<String?>(null)
 
 	private val mediaProjectionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
 		if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+			setupMessage = null
 			val serviceIntent = Intent(this, CaptureService::class.java).apply {
 				action = CaptureService.ACTION_START
 				putExtra(CaptureService.EXTRA_MEDIA_PROJECTION_RESULT_CODE, result.resultCode)
 				putExtra(CaptureService.EXTRA_MEDIA_PROJECTION_RESULT_DATA, result.data)
 			}
 			ContextCompat.startForegroundService(this, serviceIntent)
-		}
+		} else setupMessage = "Screen-capture permission is required to capture playback audio."
 	}
 
 	private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
 		if (results[Manifest.permission.RECORD_AUDIO] == true ||
 			ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
 			requestMediaProjection()
-		}
+		} else setupMessage = "Audio permission is required for playback capture."
 	}
 
 	private val overlaySettingsLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-		returningFromOverlaySettings = false
-		requestRuntimePermissions()
+		overlayGranted = Settings.canDrawOverlays(this)
+		startService(Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_REFRESH_OVERLAY))
 	}
 
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
+		overlayGranted = Settings.canDrawOverlays(this)
 		setContent {
 			LearnThisTheme {
 				val locator = (application as LearnThisApplication).serviceLocator
@@ -85,15 +88,27 @@ class MainActivity : ComponentActivity() {
 					)
 					modelState.isChecking || modelState.models.none { it.progress is ModelDownloadProgress.Ready } ->
 						ModelManagementScreen(
-							onBack = { }, onModelsReady = { }, modifier = Modifier.fillMaxSize(),
+							onBack = { }, showBackButton = false,
+							modifier = Modifier.fillMaxSize(),
 						)
 					else -> {
 						val homeViewModel: HomeViewModel = viewModel(factory = locator.homeViewModelFactory)
 						var showHistory by remember { mutableStateOf(false) }
+						var showSettings by remember { mutableStateOf(false) }
 						if (showHistory) {
 							HistoryScreen(
 								onBack = { showHistory = false },
 								historyViewModel = viewModel(factory = locator.historyViewModelFactory),
+							)
+						} else if (showSettings) {
+							ModelManagementScreen(
+								onBack = { showSettings = false },
+								showSystemSettings = true,
+								overlayGranted = overlayGranted,
+								onOpenOverlaySettings = ::openOverlaySettings,
+								onOpenNotificationSettings = ::openNotificationSettings,
+								onChangeLanguage = onboardingViewModel::restartOnboarding,
+								modifier = Modifier.fillMaxSize(),
 							)
 						} else {
 							HomeScreen(
@@ -101,8 +116,10 @@ class MainActivity : ComponentActivity() {
 								homeViewModel = homeViewModel,
 								onStartLearning = ::beginLearningMode,
 								onBeginCapture = { startService(Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_BEGIN)) },
-								onChangeLanguage = onboardingViewModel::restartOnboarding,
 								onOpenHistory = { showHistory = true },
+								onOpenSettings = { showSettings = true },
+								overlayGranted = overlayGranted,
+								setupMessage = setupMessage,
 								modifier = Modifier.fillMaxSize(),
 							)
 						}
@@ -113,15 +130,18 @@ class MainActivity : ComponentActivity() {
 	}
 
 	private fun beginLearningMode() {
-		if (BuildConfig.OVERLAY_SUPPORTED && !Settings.canDrawOverlays(this)) {
-			returningFromOverlaySettings = true
-			overlaySettingsLauncher.launch(Intent(
+		requestRuntimePermissions()
+	}
+
+	private fun openOverlaySettings() {
+		overlaySettingsLauncher.launch(Intent(
 				Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
 				Uri.parse("package:$packageName"),
 			))
-		} else {
-			requestRuntimePermissions()
-		}
+	}
+
+	private fun openNotificationSettings() {
+		startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
 	}
 
 	private fun requestRuntimePermissions() {
@@ -135,5 +155,10 @@ class MainActivity : ComponentActivity() {
 	private fun requestMediaProjection() {
 		val manager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
 		mediaProjectionLauncher.launch(manager.createScreenCaptureIntent())
+	}
+
+	override fun onResume() {
+		super.onResume()
+		overlayGranted = Settings.canDrawOverlays(this)
 	}
 }

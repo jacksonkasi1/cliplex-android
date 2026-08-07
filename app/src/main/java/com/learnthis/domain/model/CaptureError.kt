@@ -16,9 +16,9 @@ enum class CaptureError {
 
 fun CaptureError.toUserMessage(): String = when (this) {
  CaptureError.SOURCE_CAPTURE_BLOCKED ->
- "This application did not provide capturable playback audio. Try another application."
+ "The source app or this video blocked playback capture. Try a regular YouTube video or another application."
  CaptureError.CAPTURED_SILENCE ->
- "No playback audio was captured. Make sure the video is playing and volume is audible."
+ "No playback audio was captured. Start capture after the video begins playing. If this continues, the source app or video may block capture."
  CaptureError.NO_SPEECH_DETECTED ->
  "Audio was captured, but spoken dialogue was not detected. Try a clip with clearer speech."
  CaptureError.MODEL_NOT_LOADED ->
