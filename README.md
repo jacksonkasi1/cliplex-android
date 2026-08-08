@@ -4,7 +4,7 @@
 
 ClipLex is a private, on-device Android language-learning app that transforms short moments from videos into replayable lessons, translated vocabulary, quizzes, speaking practice, and AI tutoring.
 
-[Download the latest ClipLex APK](https://github.com/jacksonkasi1/cliplex-android/releases/latest/download/cliplex-v1.0.0-alpha01.apk)
+[Download ClipLex v1.0.0-alpha01](https://github.com/jacksonkasi1/cliplex-android/releases/download/v1.0.0-alpha01/cliplex-v1.0.0-alpha01.apk)
 
 ## What ClipLex does
 
@@ -43,7 +43,7 @@ Captured media, transcripts, vocabulary, and AI prompts stay on the device. Prot
 
 ClipLex currently requires Android 10 or newer on an ARM64 device.
 
-1. Download [`cliplex-v1.0.0-alpha01.apk`](https://github.com/jacksonkasi1/cliplex-android/releases/latest/download/cliplex-v1.0.0-alpha01.apk).
+1. Download [`cliplex-v1.0.0-alpha01.apk`](https://github.com/jacksonkasi1/cliplex-android/releases/download/v1.0.0-alpha01/cliplex-v1.0.0-alpha01.apk).
 2. Allow installation from your browser or file manager when Android asks.
 3. Open ClipLex and download the suggested local speech model during onboarding.
 
