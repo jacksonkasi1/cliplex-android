@@ -18,6 +18,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -39,15 +40,14 @@ import com.jacksonkasi.cliplex.data.local.SessionEntity
 import com.jacksonkasi.cliplex.domain.model.MediaView
 import com.jacksonkasi.cliplex.domain.model.TranscriptionSegment
 import com.jacksonkasi.cliplex.domain.model.availableWhen
-import com.jacksonkasi.cliplex.ui.components.ClipLexCard
 import com.jacksonkasi.cliplex.ui.theme.ClipLexColors
 import com.jacksonkasi.cliplex.ui.theme.ClipLexShapes
 import kotlinx.coroutines.delay
 
 enum class LearningDisplayMode(val label: String) {
-    WORD_BY_WORD("Word by Word"),
-    SENTENCE("Sentence"),
-    TAMIL_VIEW("Translation First"),
+    WORD_BY_WORD("Word by word"),
+    SENTENCE("Sentence and meaning"),
+    TAMIL_VIEW("Translation first"),
 }
 
 /** Presentation data for the selected word. A null value means lookup is still in progress. */
@@ -62,9 +62,8 @@ data class WordMeaningUi(
 )
 
 /**
- * Media-first lesson UI. Captions are deliberately bounded: video uses a moving, compact word
- * window, while audio uses an internally scrollable caption card. Full text lives in the transcript
- * section, so a long ASR segment can never cover the player or create an unbounded page.
+ * Media-first lesson UI. Captions remain bounded in both video and audio modes. Full text lives in
+ * the transcript below, so long ASR segments cannot cover the player or create an unbounded page.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -162,7 +161,7 @@ fun LearningSessionScreen(
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(innerPadding),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             item(key = "selectors") {
                 LessonSelectors(
@@ -237,16 +236,15 @@ fun LearningSessionScreen(
 
             if (session.captureError != null || playerState.playbackError != null) {
                 item(key = "media_error") {
-                    ClipLexCard(
+                    Surface(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
-                        containerColor = ClipLexColors.CoralSoft,
-                        borderColor = ClipLexColors.Coral.copy(alpha = 0.28f),
-                        depth = 2.dp,
+                        shape = ClipLexShapes.Card,
+                        color = ClipLexColors.CoralSoft,
+                        contentColor = ClipLexColors.CoralDark,
                     ) {
                         Text(
                             text = playerState.playbackError ?: session.captureError.orEmpty(),
                             style = MaterialTheme.typography.bodySmall,
-                            color = ClipLexColors.CoralDark,
                             modifier = Modifier.padding(15.dp),
                         )
                     }
@@ -263,27 +261,31 @@ fun LearningSessionScreen(
                     verticalAlignment = Alignment.Bottom,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Column {
-                        Text("Lesson transcript", style = MaterialTheme.typography.titleLarge, color = ClipLexColors.Ink)
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("Transcript", style = MaterialTheme.typography.titleLarge, color = ClipLexColors.Ink)
                         Text(
-                            "Tap a word to learn it · expand only when needed",
+                            "Tap a word to see its meaning.",
                             style = MaterialTheme.typography.bodySmall,
                             color = ClipLexColors.InkMuted,
                         )
                     }
-                    Text("${sortedSegments.size}", style = MaterialTheme.typography.labelLarge, color = ClipLexColors.GreenDark)
+                    Text(
+                        "${sortedSegments.size} moments",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = ClipLexColors.InkMuted,
+                    )
                 }
             }
 
             if (sortedSegments.isEmpty()) {
                 item(key = "empty_transcript") {
-                    ClipLexCard(
+                    Surface(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
-                        containerColor = ClipLexColors.BlueSoft,
-                        borderColor = ClipLexColors.Blue.copy(alpha = 0.18f),
+                        shape = ClipLexShapes.Card,
+                        color = ClipLexColors.AccentWash,
                     ) {
                         Text(
-                            visibleStage ?: "Transcript will appear here when processing is complete.",
+                            visibleStage ?: "The transcript will appear when processing is complete.",
                             modifier = Modifier.padding(18.dp),
                             style = MaterialTheme.typography.bodyMedium,
                             color = ClipLexColors.InkMuted,
