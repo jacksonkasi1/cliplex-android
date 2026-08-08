@@ -1,7 +1,7 @@
 package com.jacksonkasi.cliplex.ui.components
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -15,14 +15,11 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -34,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -52,33 +50,28 @@ enum class ClipLexButtonStyle {
     GHOST,
 }
 
-/** Elevated learning card with a subtle bottom edge rather than a generic Material shadow. */
+/** A quiet product surface. Elevation is reserved for real hierarchy instead of every container. */
 @Composable
 fun ClipLexCard(
     modifier: Modifier = Modifier,
-    containerColor: Color = ClipLexColors.Surface,
+    containerColor: Color = ClipLexColors.SurfaceRaised,
     borderColor: Color = ClipLexColors.Border,
-    depth: Dp = 3.dp,
+    depth: Dp = 1.dp,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Box(modifier = modifier.padding(bottom = depth)) {
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .offset(y = depth)
-                .background(borderColor, ClipLexShapes.Card),
-        )
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(containerColor, ClipLexShapes.Card)
-                .border(BorderStroke(1.dp, borderColor), ClipLexShapes.Card),
-            content = content,
-        )
+    Surface(
+        modifier = modifier,
+        shape = ClipLexShapes.Card,
+        color = containerColor,
+        contentColor = ClipLexColors.Ink,
+        border = if (borderColor == Color.Transparent) null else BorderStroke(1.dp, borderColor),
+        shadowElevation = depth.coerceIn(0.dp, 4.dp),
+    ) {
+        Column(content = content)
     }
 }
 
-/** Tactile CTA with a visible pressed state, suitable for the app's main learning actions. */
+/** Primary actions use one clear accent and restrained physical feedback. */
 @Composable
 fun ClipLexActionButton(
     text: String,
@@ -87,13 +80,13 @@ fun ClipLexActionButton(
     icon: ImageVector? = null,
     style: ClipLexButtonStyle = ClipLexButtonStyle.PRIMARY,
     enabled: Boolean = true,
-    height: Dp = 54.dp,
+    height: Dp = 52.dp,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
-    val pressedOffset by animateDpAsState(
-        targetValue = if (pressed && enabled) 4.dp else 0.dp,
-        label = "cliplex-button-depth",
+    val scale by animateFloatAsState(
+        targetValue = if (pressed && enabled) 0.985f else 1f,
+        label = "cliplex-button-scale",
     )
     val palette = buttonPalette(style)
     val topColor by animateColorAsState(
@@ -101,55 +94,49 @@ fun ClipLexActionButton(
         label = "cliplex-button-color",
     )
     val contentColor = if (enabled) palette.content else ClipLexColors.InkFaint
-    val shadowColor = if (enabled) palette.depth else ClipLexColors.BorderStrong
+    val borderColor = when {
+        !enabled -> ClipLexColors.Border
+        style == ClipLexButtonStyle.GHOST -> ClipLexColors.BorderStrong
+        else -> Color.Transparent
+    }
 
-    Box(modifier = modifier.height(height + 4.dp)) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = 4.dp)
-                .offset(y = 4.dp)
-                .background(shadowColor, ClipLexShapes.Control),
-        )
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = 4.dp)
-                .offset(y = pressedOffset)
-                .clip(ClipLexShapes.Control)
-                .background(topColor)
-                .border(
-                    width = if (style == ClipLexButtonStyle.GHOST) 1.dp else 0.dp,
-                    color = if (style == ClipLexButtonStyle.GHOST) ClipLexColors.BorderStrong else Color.Transparent,
-                    shape = ClipLexShapes.Control,
-                )
-                .clickable(
-                    enabled = enabled,
-                    role = Role.Button,
-                    interactionSource = interactionSource,
-                    indication = null,
-                    onClick = onClick,
-                )
-                .semantics { role = Role.Button }
-                .padding(horizontal = 18.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            icon?.let {
-                Icon(it, contentDescription = null, tint = contentColor, modifier = Modifier.size(22.dp))
-                Spacer(Modifier.width(9.dp))
+    Row(
+        modifier = modifier
+            .height(height)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
             }
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelLarge,
-                color = contentColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+            .clip(ClipLexShapes.Control)
+            .background(topColor)
+            .border(1.dp, borderColor, ClipLexShapes.Control)
+            .clickable(
+                enabled = enabled,
+                role = Role.Button,
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
             )
+            .semantics { role = Role.Button }
+            .padding(horizontal = 18.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        icon?.let {
+            Icon(it, contentDescription = null, tint = contentColor, modifier = Modifier.size(21.dp))
+            Spacer(Modifier.width(9.dp))
         }
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            color = contentColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
+/** Compact selector or status surface. It is intentionally less pill-like than the V1 component. */
 @Composable
 fun ClipLexPill(
     text: String,
@@ -163,15 +150,15 @@ fun ClipLexPill(
     val clickModifier = if (onClick == null) Modifier else Modifier.clickable(role = Role.Button, onClick = onClick)
     Surface(
         modifier = modifier.then(clickModifier),
-        shape = ClipLexShapes.Pill,
+        shape = ClipLexShapes.Control,
         color = background,
         contentColor = contentColor,
         border = BorderStroke(1.dp, borderColor),
-        shadowElevation = 1.dp,
+        shadowElevation = 0.dp,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 13.dp, vertical = 9.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             icon?.let { Icon(it, contentDescription = null, modifier = Modifier.size(18.dp)) }
@@ -185,21 +172,21 @@ fun ClipLexIconBadge(
     icon: ImageVector,
     contentDescription: String?,
     modifier: Modifier = Modifier,
-    background: Color = ClipLexColors.GreenSoft,
-    contentColor: Color = ClipLexColors.Green,
-    size: Dp = 46.dp,
+    background: Color = ClipLexColors.AccentSoft,
+    contentColor: Color = ClipLexColors.Accent,
+    size: Dp = 44.dp,
     onClick: (() -> Unit)? = null,
 ) {
     val clickModifier = if (onClick == null) Modifier else Modifier.clickable(role = Role.Button, onClick = onClick)
     Box(
         modifier = modifier
             .size(size)
-            .clip(CircleShape)
+            .clip(ClipLexShapes.Small)
             .background(background)
             .then(clickModifier),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = contentDescription, tint = contentColor, modifier = Modifier.size(size * 0.48f))
+        Icon(icon, contentDescription = contentDescription, tint = contentColor, modifier = Modifier.size(size * 0.46f))
     }
 }
 
@@ -208,8 +195,8 @@ fun ClipLexProgressBar(
     progress: Float,
     modifier: Modifier = Modifier,
     trackColor: Color = ClipLexColors.SurfaceMuted,
-    progressColor: Color = ClipLexColors.Green,
-    height: Dp = 12.dp,
+    progressColor: Color = ClipLexColors.Accent,
+    height: Dp = 6.dp,
 ) {
     val safeProgress = progress.coerceIn(0f, 1f)
     Box(
@@ -246,7 +233,7 @@ fun ClipLexSectionTitle(
             Text(
                 text = actionLabel,
                 style = MaterialTheme.typography.labelLarge,
-                color = ClipLexColors.Blue,
+                color = ClipLexColors.Accent,
                 modifier = Modifier.clickable(onClick = onAction).padding(horizontal = 4.dp, vertical = 8.dp),
             )
         }
@@ -263,15 +250,18 @@ fun ClipLexBottomNav(
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = ClipLexColors.Surface,
-        shadowElevation = 12.dp,
-        border = BorderStroke(1.dp, ClipLexColors.Border),
+        contentColor = ClipLexColors.Ink,
+        shadowElevation = 5.dp,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 5.dp, vertical = 7.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
-        ) {
-            items.forEachIndexed { index, (icon, label) ->
-                BottomNavItem(icon, label, index == selectedIndex) { onSelected(index) }
+        Column {
+            Box(Modifier.fillMaxWidth().height(1.dp).background(ClipLexColors.Border))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 3.dp, vertical = 5.dp),
+                horizontalArrangement = Arrangement.SpaceAround,
+            ) {
+                items.forEachIndexed { index, (icon, label) ->
+                    BottomNavItem(icon, label, index == selectedIndex) { onSelected(index) }
+                }
             }
         }
     }
@@ -289,26 +279,27 @@ private fun RowScope.BottomNavItem(
             .weight(1f)
             .clip(ClipLexShapes.Small)
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(vertical = 4.dp),
+            .padding(horizontal = 2.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         Box(
             modifier = Modifier
-                .background(if (selected) ClipLexColors.GreenSoft else Color.Transparent, ClipLexShapes.Pill)
-                .padding(horizontal = 15.dp, vertical = 5.dp),
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = if (selected) ClipLexColors.Green else ClipLexColors.InkFaint,
-                modifier = Modifier.size(22.dp),
-            )
-        }
+                .width(22.dp)
+                .height(3.dp)
+                .clip(ClipLexShapes.Pill)
+                .background(if (selected) ClipLexColors.Accent else Color.Transparent),
+        )
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = if (selected) ClipLexColors.Accent else ClipLexColors.InkFaint,
+            modifier = Modifier.size(22.dp),
+        )
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = if (selected) ClipLexColors.GreenDark else ClipLexColors.InkMuted,
+            color = if (selected) ClipLexColors.AccentStrong else ClipLexColors.InkMuted,
             maxLines = 1,
         )
     }
@@ -317,13 +308,12 @@ private fun RowScope.BottomNavItem(
 private data class ButtonPalette(
     val container: Color,
     val content: Color,
-    val depth: Color,
 )
 
 private fun buttonPalette(style: ClipLexButtonStyle): ButtonPalette = when (style) {
-    ClipLexButtonStyle.PRIMARY -> ButtonPalette(ClipLexColors.Green, Color.White, ClipLexColors.GreenPressed)
-    ClipLexButtonStyle.SECONDARY -> ButtonPalette(ClipLexColors.Blue, Color.White, ClipLexColors.BlueDark)
-    ClipLexButtonStyle.DANGER -> ButtonPalette(ClipLexColors.Coral, Color.White, ClipLexColors.CoralDark)
-    ClipLexButtonStyle.WARM -> ButtonPalette(ClipLexColors.Warm, Color.White, ClipLexColors.WarmDark)
-    ClipLexButtonStyle.GHOST -> ButtonPalette(ClipLexColors.Surface, ClipLexColors.Ink, ClipLexColors.BorderStrong)
+    ClipLexButtonStyle.PRIMARY -> ButtonPalette(ClipLexColors.Accent, Color.White)
+    ClipLexButtonStyle.SECONDARY -> ButtonPalette(ClipLexColors.NightSoft, Color.White)
+    ClipLexButtonStyle.DANGER -> ButtonPalette(ClipLexColors.Coral, Color.White)
+    ClipLexButtonStyle.WARM -> ButtonPalette(ClipLexColors.Warm, ClipLexColors.Ink)
+    ClipLexButtonStyle.GHOST -> ButtonPalette(ClipLexColors.Surface, ClipLexColors.Ink)
 }
