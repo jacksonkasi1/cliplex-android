@@ -45,3 +45,11 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon :app:testSafeDebugUnitTest :app:assembleSafeDebug
+
+      - name: Upload safe debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClipLex-safe-debug-apk
+          path: app/build/outputs/apk/safe/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
