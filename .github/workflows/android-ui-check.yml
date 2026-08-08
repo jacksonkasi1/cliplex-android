@@ -34,7 +34,7 @@ jobs:
 
       - name: Install Android toolchain
         run: |
-          yes | sdkmanager --licenses >/dev/null
+          yes | sdkmanager --licenses >/dev/null || true
           sdkmanager --install \
             "platforms;android-36" \
             "build-tools;36.0.0" \
@@ -42,4 +42,6 @@ jobs:
             "cmake;3.22.1"
 
       - name: Run unit tests and assemble safe debug APK
-        run: ./gradlew --no-daemon :app:testSafeDebugUnitTest :app:assembleSafeDebug
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :app:testSafeDebugUnitTest :app:assembleSafeDebug
