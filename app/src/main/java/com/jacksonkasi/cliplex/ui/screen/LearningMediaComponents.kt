@@ -36,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,7 +45,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.jacksonkasi.cliplex.data.local.SessionEntity
 import com.jacksonkasi.cliplex.domain.model.MediaView
 import com.jacksonkasi.cliplex.domain.model.TranscriptionSegment
-import com.jacksonkasi.cliplex.ui.components.ClipLexCard
 import com.jacksonkasi.cliplex.ui.components.ClipLexIconBadge
 import com.jacksonkasi.cliplex.ui.theme.ClipLexColors
 import com.jacksonkasi.cliplex.ui.theme.ClipLexShapes
@@ -67,7 +67,7 @@ internal fun VideoHero(
                 .fillMaxWidth()
                 .height(heroHeight)
                 .clip(ClipLexShapes.Hero)
-                .background(Color.Black),
+                .background(ClipLexColors.Night),
         ) {
             AndroidView(
                 factory = { context -> VideoView(context).also { playerState.bindVideo(it, videoSource) } },
@@ -75,9 +75,9 @@ internal fun VideoHero(
                 modifier = Modifier.fillMaxSize(),
             )
 
-            if (processingStage != null) {
+            processingStage?.let {
                 ProcessingPill(
-                    text = processingStage,
+                    text = it,
                     modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
                 )
             }
@@ -88,10 +88,7 @@ internal fun VideoHero(
                 mode = displayMode,
                 onWordTap = onWordTap,
                 compactVideo = true,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .padding(12.dp),
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
             )
         }
     }
@@ -112,32 +109,34 @@ internal fun AudioHero(
     onScrubChange: (Float) -> Unit,
     onScrubFinished: () -> Unit,
 ) {
-    ClipLexCard(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-        containerColor = ClipLexColors.Ink,
-        borderColor = ClipLexColors.Ink,
-        depth = 4.dp,
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp)
+            .clip(ClipLexShapes.Hero)
+            .background(Brush.verticalGradient(listOf(ClipLexColors.NightSoft, ClipLexColors.Night)))
+            .padding(18.dp),
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(17.dp)) {
+        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ClipLexIconBadge(
                     icon = Icons.Default.Headphones,
                     contentDescription = null,
-                    background = ClipLexColors.Green,
-                    contentColor = Color.White,
-                    size = 44.dp,
+                    background = Color.White.copy(alpha = 0.10f),
+                    contentColor = ClipLexColors.AccentBright,
+                    size = 43.dp,
                 )
                 Spacer(Modifier.width(11.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("LISTEN & LEARN", style = MaterialTheme.typography.labelSmall, color = ClipLexColors.GreenSoft)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Text("Audio lesson", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.62f))
                     Text(title, style = MaterialTheme.typography.titleMedium, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                if (processingStage != null) ProcessingPill(text = processingStage)
+                processingStage?.let { ProcessingPill(text = it) }
             }
 
             AudioWaveform(
                 progress = if (state.durationMs > 0L) displayPositionMs.toFloat() / state.durationMs else 0f,
-                modifier = Modifier.fillMaxWidth().height(46.dp).padding(top = 10.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
             )
 
             PlaybackControls(
@@ -155,7 +154,7 @@ internal fun AudioHero(
                     style = MaterialTheme.typography.bodySmall,
                     color = ClipLexColors.CoralSoft,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
                 )
             }
 
@@ -165,13 +164,7 @@ internal fun AudioHero(
                 mode = displayMode,
                 onWordTap = onWordTap,
                 compactVideo = false,
-                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-            )
-            Text(
-                "Long captions scroll inside this card · tap any source word",
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.58f),
-                modifier = Modifier.padding(top = 8.dp),
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }
@@ -179,22 +172,25 @@ internal fun AudioHero(
 
 @Composable
 internal fun LessonOverviewCard(session: SessionEntity, mediaView: MediaView) {
-    ClipLexCard(
+    Surface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
-        depth = 2.dp,
+        shape = ClipLexShapes.Card,
+        color = ClipLexColors.AccentWash,
+        contentColor = ClipLexColors.Ink,
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(horizontal = 15.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             ClipLexIconBadge(
                 icon = if (mediaView == MediaView.VIDEO) Icons.Default.Videocam else Icons.Default.Headphones,
                 contentDescription = null,
-                background = ClipLexColors.GreenSoft,
-                contentColor = ClipLexColors.Green,
+                background = ClipLexColors.Surface,
+                contentColor = ClipLexColors.Accent,
+                size = 42.dp,
             )
-            Column(Modifier.weight(1f)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
                     session.title.ifBlank { "Captured lesson" },
                     style = MaterialTheme.typography.titleMedium,
@@ -203,10 +199,9 @@ internal fun LessonOverviewCard(session: SessionEntity, mediaView: MediaView) {
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    "${formatDuration(session.durationMs)} · ${session.segmentCount} learning moments · ${mediaView.label}",
+                    "${formatDuration(session.durationMs)}  /  ${session.segmentCount} moments  /  ${mediaView.label}",
                     style = MaterialTheme.typography.bodySmall,
                     color = ClipLexColors.InkMuted,
-                    modifier = Modifier.padding(top = 3.dp),
                 )
             }
         }
@@ -227,7 +222,7 @@ internal fun AudioWaveform(progress: Float, modifier: Modifier = Modifier) {
                 Modifier
                     .weight(1f)
                     .height(barHeight.dp)
-                    .background(if (played) ClipLexColors.Green else Color.White.copy(alpha = 0.22f), CircleShape),
+                    .background(if (played) ClipLexColors.AccentBright else Color.White.copy(alpha = 0.18f), CircleShape),
             )
         }
     }
@@ -247,24 +242,22 @@ internal fun PlaybackControls(
     val duration = state.durationMs.coerceAtLeast(1L)
     val displayedPosition = if (isScrubbing) scrubPositionMs else state.positionMs.toFloat()
     val foreground = if (dark) Color.White else ClipLexColors.Ink
-    val muted = if (dark) Color.White.copy(alpha = 0.62f) else ClipLexColors.InkMuted
+    val muted = if (dark) Color.White.copy(alpha = 0.58f) else ClipLexColors.InkMuted
     val sliderColors = SliderDefaults.colors(
-        thumbColor = ClipLexColors.Green,
-        activeTrackColor = ClipLexColors.Green,
-        inactiveTrackColor = muted.copy(alpha = 0.28f),
+        thumbColor = ClipLexColors.AccentBright,
+        activeTrackColor = ClipLexColors.AccentBright,
+        inactiveTrackColor = muted.copy(alpha = 0.24f),
     )
     val sliderInteractionSource = remember { MutableInteractionSource() }
 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .then(
-                if (dark) Modifier else Modifier.background(ClipLexColors.Surface, ClipLexShapes.Control),
-            )
-            .padding(horizontal = if (dark) 0.dp else 10.dp, vertical = if (dark) 4.dp else 8.dp),
+            .then(if (dark) Modifier else Modifier.background(ClipLexColors.Surface, ClipLexShapes.Control))
+            .padding(horizontal = if (dark) 0.dp else 9.dp, vertical = if (dark) 2.dp else 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Surface(shape = CircleShape, color = ClipLexColors.Green, contentColor = Color.White, shadowElevation = 3.dp) {
+        Surface(shape = CircleShape, color = ClipLexColors.Accent, contentColor = Color.White, shadowElevation = 1.dp) {
             IconButton(onClick = state::togglePlayback, enabled = state.isPrepared, modifier = Modifier.size(46.dp)) {
                 Icon(
                     if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
@@ -306,7 +299,7 @@ internal fun PlaybackControls(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(formatDuration(displayedPosition.toLong()), style = MaterialTheme.typography.labelSmall, color = muted)
                 Text(
-                    "−${formatDuration((state.durationMs - displayedPosition.toLong()).coerceAtLeast(0L))}",
+                    "-${formatDuration((state.durationMs - displayedPosition.toLong()).coerceAtLeast(0L))}",
                     style = MaterialTheme.typography.labelSmall,
                     color = muted,
                 )
