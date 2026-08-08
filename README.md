@@ -87,6 +87,15 @@ Verified physical target: OPPO CPH2781, MediaTek MT6835, `arm64-v8a`, Android
 16/API 36. See [Arm optimization details](docs/ARM_OPTIMIZATION.md) and the
 [preserved device result](benchmarks/results/oppo-cph2781.md).
 
+### Measured Arm64 result
+
+On the physical target, a controlled 9.4-second Whisper test with two warm-ups
+and five measured runs reduced median native inference from **2,393.764 ms** to
+**692.659 ms**: **3.456x faster** and **71.06% lower latency**, with matching
+normalized transcript content. Inspect every phone-generated observation in
+the [raw CSV](benchmarks/results/oppo-cph2781-2026-08-08-raw.csv) and reproduce
+it with the [benchmark runner](benchmarks/BENCHMARK.md).
+
 ## Goal
 
 ClipLex aims to turn everyday watching into active learning: capture a meaningful moment, understand it immediately, retain its vocabulary, practise saying it, and revisit it through personalized exercises without sending private learning data to a server.

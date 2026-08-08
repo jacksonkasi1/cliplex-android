@@ -4,10 +4,7 @@ Only commit audio that the project is permitted to redistribute. For every
 sample, record the speaker/source, license or consent, exact duration, sample
 rate, channel count, encoding, and SHA-256 in the corresponding result report.
 
-The private 9.4-second development capture used for the preliminary
-`2,380 ms -> 819 ms` comparison is intentionally not included because its
-source media has not been cleared for redistribution.
-
-For a public diagnostic input, initialize the repository submodules and use
+The controlled 2026-08-08 benchmark uses the first 9.4 seconds of
 `native/whisper.cpp/samples/jfk.wav`, subject to the upstream notices in
-`native/whisper.cpp`.
+`native/whisper.cpp`. Its deterministic post-conversion input hash is recorded
+in the raw CSV.

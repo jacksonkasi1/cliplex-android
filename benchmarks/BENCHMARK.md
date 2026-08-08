@@ -1,8 +1,8 @@
 # ClipLex Whisper benchmark
 
 This document makes ClipLex's Arm64 Whisper optimization evidence auditable and
-repeatable. It separates measurements already observed during development from
-the protocol that future benchmark reports must follow.
+repeatable. The headline result below comes from committed raw device output,
+not an estimate or a reconstructed benchmark.
 
 ## Test device
 
@@ -18,8 +18,8 @@ so the binary remains portable across supported Arm64 Android devices.
 
 ## Software and model
 
-- ClipLex source revision for the original measurements: pre-`1.0.0-alpha01`
-  development build
+- ClipLex benchmark runner revision:
+  `7af8ee98d997a37953aabbd4b8c5daf4a654e184`
 - `whisper.cpp` revision: `a8d002cfd879315632a579e73f0148d06959de36`
 - Model: `ggml-tiny.en-q5_1.bin`
 - Model SHA-256:
@@ -31,26 +31,27 @@ so the binary remains portable across supported Arm64 Android devices.
 - Translation: disabled
 - Timed sentence segments: enabled in the production configuration
 
-## Existing optimization evidence
+## Measured result
 
-The same private 9.4-second captured English clip produced the exact expected
-transcript in both configurations:
+On 2026-08-08 the physical device completed two warm-ups and five measured runs
+per configuration using the first 9.4 seconds of the committed JFK WAV. The
+input WAV after deterministic decode/resample/crop has SHA-256
+`f2871e112ba83f00d1b5b21d4147decbf40990d9b43618309c42cf8577caa3bd`.
 
-| Configuration | `audio_ctx` | Timed segments | Warm native inference |
-|---|---:|---:|---:|
-| Baseline | model default | yes | about 2,380 ms |
-| Optimized | 512 | yes | about 819 ms |
+| Configuration | Five measured native inference times (ms) | Median |
+|---|---|---:|
+| Baseline, `audio_ctx=0` | 2344.113, 2389.644, 2422.145, 2393.764, 2855.499 | **2393.764 ms** |
+| Optimized, `audio_ctx=512` | 691.849, 689.897, 692.659, 693.885, 703.163 | **692.659 ms** |
 
-This is approximately **2.9x faster** and a **66% latency reduction** for that
-clip. Removing timestamps reduced the optimized run to about 791 ms, only about
-28 ms faster, so ClipLex keeps timestamps for synchronized learning sessions.
-Contexts 384 and 256 were rejected because they truncated, degraded, or
-repeated output.
+The measured median is **3.456x faster**, a **71.06% latency reduction**. All
+measured rows report a warm model and Android thermal status 0. The normalized
+transcript content matched across all runs; the optimized decoder added only a
+final period. Sentence timestamps remained enabled.
 
-These are representative warm measurements retained from development, not a
-claim that five raw runs were archived or that 819 ms is a cross-device
-guarantee. The original private capture is not committed because its source
-media is not cleared for redistribution.
+Every warm-up and measured observation is preserved in the
+[raw CSV](results/oppo-cph2781-2026-08-08-raw.csv). Results are specific to this
+device, model, input, build, and device state; they are not a cross-device
+latency guarantee.
 
 ## Public fixed input
 
@@ -61,36 +62,26 @@ audio at:
 native/whisper.cpp/samples/jfk.wav
 ```
 
-ClipLex debug builds package this known-good sample and expose **Run known-good
-ASR test** in diagnostics. It is suitable for validating the model, native
-runtime, transcript, and timing fields. The historical warm optimized result
-for this diagnostic path was about 696 ms on the test device; device state and
-the exact input window can change the number.
-
-The headline baseline-versus-optimized comparison must be repeated with the
-same newly recorded, redistributable 8-10 second English WAV before it is
-presented as a statistical median. Place that clip in `benchmarks/samples/` and
-record its provenance and SHA-256 in the result report.
+The instrumentation runner decodes this file, resamples it to 16 kHz mono, and
+uses exactly the first 150,400 samples (9.4 seconds). It checks the input/model
+hashes and transcript content, and flushes every observation directly to CSV
+on the device.
 
 ## Repeatable procedure
 
-1. Record or select a redistributable 8-10 second English WAV. Convert it to
-   16 kHz mono PCM16, then record its duration and SHA-256.
-2. Build and install `safeDebug` using the commands in the root README.
-3. Download **Whisper Tiny English (Q5_1)** in ClipLex and select English.
+1. Initialize submodules and build `safeDebug` plus `safeDebugAndroidTest`.
+2. Install both APKs on an Arm64 phone.
+3. Download/provision **Whisper Tiny English (Q5_1)** in the debug app and
+   verify the model SHA-256 listed above.
 4. Close unnecessary background apps and let the device return to normal
    temperature. Record Android thermal status before each configuration.
-5. Load the fixed input and run two unrecorded warm-up transcriptions.
-6. Run five baseline transcriptions with `shortEnglishFastMode=false`
-   (`audio_ctx=0`, the model default). Save each native `whisperInferenceMs`
-   value and transcript.
-7. Run two optimized warm-ups, then five optimized transcriptions with
-   `shortEnglishFastMode=true` (`audio_ctx=512`). Save the same fields.
-8. Confirm that baseline and optimized transcripts match the expected text and
-   retain acceptable timed segments.
-9. Sort each five-value series and report the middle value as the median. Also
-   retain all raw values, the source commit, APK variant, model hash, and device
-   state in `benchmarks/results/`.
+5. Run `WhisperArm64BenchmarkTest` with the source revision as the
+   `cliplexBenchmarkCommit` instrumentation argument.
+6. The test performs two baseline warm-ups, five baseline measurements, two
+   optimized warm-ups, and five optimized measurements in that order.
+7. Pull `files/benchmarks/whisper-arm64-raw.csv` with `adb shell run-as`.
+8. Confirm the test passed, retain all rows, and calculate each median from the
+   five rows whose phase is `measured`.
 
 Do not mix cold model-load time with warm inference. ClipLex diagnostics expose
 model load, native inference, JNI/JSON, and Kotlin total timings separately.
