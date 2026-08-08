@@ -1,51 +1,26 @@
 package com.jacksonkasi.cliplex.ui.screen
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.School
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Translate
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -58,37 +33,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.jacksonkasi.cliplex.common.AppLanguage
-import com.jacksonkasi.cliplex.common.languageForWord
-import com.jacksonkasi.cliplex.common.latinPronunciation
-import com.jacksonkasi.cliplex.common.validWordTranslation
-import com.jacksonkasi.cliplex.domain.model.SavedWord
-import com.jacksonkasi.cliplex.domain.model.TranscriptionSegment
 import com.jacksonkasi.cliplex.domain.model.toUserMessage
 import com.jacksonkasi.cliplex.service.CaptureService
 import com.jacksonkasi.cliplex.ui.components.ClipLexActionButton
 import com.jacksonkasi.cliplex.ui.components.ClipLexBottomNav
 import com.jacksonkasi.cliplex.ui.components.ClipLexButtonStyle
-import com.jacksonkasi.cliplex.ui.components.ClipLexCard
-import com.jacksonkasi.cliplex.ui.components.ClipLexIconBadge
-import com.jacksonkasi.cliplex.ui.components.ClipLexPill
-import com.jacksonkasi.cliplex.ui.components.ClipLexProgressBar
 import com.jacksonkasi.cliplex.ui.components.ClipLexSectionTitle
-import com.jacksonkasi.cliplex.ui.components.LexiMascot
-import com.jacksonkasi.cliplex.ui.components.LexiMood
 import com.jacksonkasi.cliplex.ui.theme.ClipLexColors
 import com.jacksonkasi.cliplex.ui.theme.ClipLexShapes
 import com.jacksonkasi.cliplex.ui.viewmodel.HomeViewModel
-import kotlin.math.sin
 
 @Composable
 fun HomeScreen(
@@ -126,9 +82,9 @@ fun HomeScreen(
                 .verticalScroll(rememberScrollState())
                 .statusBarsPadding()
                 .padding(horizontal = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(4.dp))
             HomeHeader(onOpenSettings)
             LanguageAndStreakRow(
                 source = compactLanguageName(state.modelName?.substringBefore(" ·") ?: "English"),
@@ -183,27 +139,21 @@ fun HomeScreen(
                     }
 
                     val visibleMessage = setupMessage ?: state.error?.toUserMessage() ?: state.modelError
-                    visibleMessage?.let {
-                        ClipLexCard(
+                    visibleMessage?.let { message ->
+                        Surface(
                             modifier = Modifier.fillMaxWidth(),
-                            containerColor = ClipLexColors.CoralSoft,
-                            borderColor = ClipLexColors.Coral.copy(alpha = 0.35f),
+                            shape = ClipLexShapes.Card,
+                            color = ClipLexColors.CoralSoft,
+                            contentColor = ClipLexColors.CoralDark,
                         ) {
                             Row(
-                                modifier = Modifier.padding(16.dp),
+                                modifier = Modifier.padding(15.dp),
                                 verticalAlignment = Alignment.Top,
-                                horizontalArrangement = Arrangement.spacedBy(11.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
-                                ClipLexIconBadge(
-                                    icon = Icons.Default.AutoAwesome,
-                                    contentDescription = null,
-                                    background = Color.White.copy(alpha = 0.72f),
-                                    contentColor = ClipLexColors.Coral,
-                                    size = 38.dp,
-                                )
+                                Icon(Icons.Default.ErrorOutline, contentDescription = null)
                                 Text(
-                                    text = it,
-                                    color = ClipLexColors.CoralDark,
+                                    text = message,
                                     style = MaterialTheme.typography.bodyMedium,
                                     modifier = Modifier.weight(1f),
                                 )
@@ -214,7 +164,7 @@ fun HomeScreen(
                     if (state.segments.isNotEmpty()) {
                         ClipLexSectionTitle(
                             title = "Recent learning",
-                            actionLabel = "See all",
+                            actionLabel = "View lessons",
                             onAction = onOpenHistory,
                         )
                         state.segments.take(3).forEach { segment ->
@@ -229,7 +179,7 @@ fun HomeScreen(
                     }
                 }
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
         }
 
         ClipLexBottomNav(
