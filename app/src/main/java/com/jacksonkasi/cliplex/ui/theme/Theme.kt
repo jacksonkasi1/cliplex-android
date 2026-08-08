@@ -13,18 +13,18 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val LightColorScheme = lightColorScheme(
-    primary = ClipLexColors.Green,
+    primary = ClipLexColors.Accent,
     onPrimary = Color.White,
-    primaryContainer = ClipLexColors.GreenSoft,
-    onPrimaryContainer = ClipLexColors.GreenDark,
-    secondary = ClipLexColors.Blue,
+    primaryContainer = ClipLexColors.AccentSoft,
+    onPrimaryContainer = ClipLexColors.AccentStrong,
+    secondary = ClipLexColors.AccentStrong,
     onSecondary = Color.White,
-    secondaryContainer = ClipLexColors.BlueSoft,
-    onSecondaryContainer = ClipLexColors.BlueDark,
-    tertiary = ClipLexColors.Purple,
-    onTertiary = Color.White,
-    tertiaryContainer = ClipLexColors.PurpleSoft,
-    onTertiaryContainer = ClipLexColors.Purple,
+    secondaryContainer = ClipLexColors.AccentWash,
+    onSecondaryContainer = ClipLexColors.Ink,
+    tertiary = ClipLexColors.Warm,
+    onTertiary = ClipLexColors.Ink,
+    tertiaryContainer = ClipLexColors.WarmSoft,
+    onTertiaryContainer = ClipLexColors.WarmDark,
     error = ClipLexColors.Coral,
     onError = Color.White,
     errorContainer = ClipLexColors.CoralSoft,
@@ -52,6 +52,7 @@ fun ClipLexTheme(
     darkTheme: Boolean = false,
     content: @Composable () -> Unit,
 ) {
+    // ClipLex uses a locked light product theme with dark media canvases inside learning screens.
     val colorScheme = LightColorScheme
     val view = LocalView.current
 
