@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.ExpandMore
@@ -63,25 +64,31 @@ internal fun LearningTopBar(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(ClipLexColors.Surface)
+            .background(ClipLexColors.Canvas)
             .statusBarsPadding()
-            .padding(horizontal = 6.dp, vertical = 5.dp),
+            .padding(horizontal = 6.dp, vertical = 4.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = ClipLexColors.Ink)
             }
-            Column(Modifier.weight(1f)) {
-                Text("Learning session", style = MaterialTheme.typography.titleMedium, color = ClipLexColors.Ink)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 Text(
-                    "${languageDisplayName(session.sourceLanguage)} → ${languageDisplayName(session.targetLanguage)}",
+                    session.title.ifBlank { "Learning session" },
+                    style = MaterialTheme.typography.titleMedium,
+                    color = ClipLexColors.Ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    "${languageDisplayName(session.sourceLanguage)}  →  ${languageDisplayName(session.targetLanguage)}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = ClipLexColors.GreenDark,
+                    color = ClipLexColors.AccentStrong,
                     modifier = Modifier.clickable(onClick = onChangeLanguage),
                 )
             }
             IconButton(onClick = onReanalyze, enabled = !processing) {
-                Icon(Icons.Default.Refresh, contentDescription = "Re-analyze lesson", tint = ClipLexColors.Green)
+                Icon(Icons.Default.Refresh, contentDescription = "Re-analyze lesson", tint = ClipLexColors.Accent)
             }
             Box {
                 IconButton(onClick = { onOptionsExpandedChange(true) }) {
@@ -93,7 +100,7 @@ internal fun LearningTopBar(
                 ) {
                     if (hasVideo) {
                         DropdownMenuItem(
-                            text = { Text("Delete video only") },
+                            text = { Text("Delete saved video") },
                             leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
                             onClick = {
                                 onOptionsExpandedChange(false)
@@ -118,8 +125,9 @@ internal fun LearningTopBar(
             } else {
                 0f
             },
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
-            height = 6.dp,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+            height = 3.dp,
+            trackColor = ClipLexColors.Border,
         )
     }
 }
@@ -134,7 +142,7 @@ internal fun LessonSelectors(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 2.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         MediaViewMenu(
@@ -159,27 +167,19 @@ internal fun ModeMenu(
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier) {
-        Surface(
-            shape = ClipLexShapes.Pill,
-            color = ClipLexColors.BlueSoft,
-            contentColor = ClipLexColors.BlueDark,
-            border = BorderStroke(1.dp, ClipLexColors.Blue.copy(alpha = 0.18f)),
+        SelectorSurface(
             modifier = Modifier.fillMaxWidth().clickable { expanded = true },
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-            ) {
-                Text(selectedMode.label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.width(3.dp))
-                Icon(Icons.Default.ExpandMore, contentDescription = "Change learning mode", modifier = Modifier.size(18.dp))
-            }
-        }
+            label = selectedMode.label,
+            leadingIcon = null,
+            enabled = true,
+        )
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             LearningDisplayMode.entries.forEach { mode ->
                 DropdownMenuItem(
-                    text = { Text(if (mode == selectedMode) "✓  ${mode.label}" else mode.label) },
+                    text = { Text(mode.label) },
+                    trailingIcon = {
+                        if (mode == selectedMode) Icon(Icons.Default.Check, contentDescription = "Selected", tint = ClipLexColors.Accent)
+                    },
                     onClick = {
                         expanded = false
                         onModeSelected(mode)
@@ -199,37 +199,24 @@ internal fun MediaViewMenu(
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier) {
-        Surface(
-            shape = ClipLexShapes.Pill,
-            color = ClipLexColors.GreenSoft,
-            contentColor = ClipLexColors.GreenDark,
-            border = BorderStroke(1.dp, ClipLexColors.Green.copy(alpha = 0.2f)),
+        SelectorSurface(
             modifier = Modifier.fillMaxWidth().clickable(enabled = hasVideo) { expanded = true },
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-            ) {
-                Icon(
-                    if (selectedView == MediaView.VIDEO) Icons.Default.Videocam else Icons.Default.Headphones,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(selectedView.label, style = MaterialTheme.typography.labelLarge)
-                if (hasVideo) Icon(Icons.Default.ExpandMore, contentDescription = "Change media view", modifier = Modifier.size(18.dp))
-            }
-        }
+            label = selectedView.label,
+            leadingIcon = if (selectedView == MediaView.VIDEO) Icons.Default.Videocam else Icons.Default.Headphones,
+            enabled = hasVideo,
+        )
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             MediaView.entries.filter { it != MediaView.VIDEO || hasVideo }.forEach { view ->
                 DropdownMenuItem(
-                    text = { Text(if (view == selectedView) "✓  ${view.label}" else view.label) },
+                    text = { Text(view.label) },
                     leadingIcon = {
                         Icon(
                             if (view == MediaView.VIDEO) Icons.Default.Videocam else Icons.Default.Headphones,
                             contentDescription = null,
                         )
+                    },
+                    trailingIcon = {
+                        if (view == selectedView) Icon(Icons.Default.Check, contentDescription = "Selected", tint = ClipLexColors.Accent)
                     },
                     onClick = {
                         expanded = false
@@ -242,10 +229,40 @@ internal fun MediaViewMenu(
 }
 
 @Composable
+private fun SelectorSurface(
+    label: String,
+    leadingIcon: androidx.compose.ui.graphics.vector.ImageVector?,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = ClipLexShapes.Control,
+        color = ClipLexColors.Surface,
+        contentColor = if (enabled) ClipLexColors.Ink else ClipLexColors.InkMuted,
+        border = BorderStroke(1.dp, ClipLexColors.Border),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            leadingIcon?.let {
+                Icon(it, contentDescription = null, tint = ClipLexColors.Accent, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+            }
+            Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.width(3.dp))
+            Icon(Icons.Default.ExpandMore, contentDescription = "Change option", tint = ClipLexColors.InkFaint, modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+@Composable
 internal fun ProcessingPill(text: String, modifier: Modifier = Modifier) {
     Surface(
-        shape = ClipLexShapes.Pill,
-        color = Color.Black.copy(alpha = 0.68f),
+        shape = ClipLexShapes.Small,
+        color = ClipLexColors.Night.copy(alpha = 0.76f),
         contentColor = Color.White,
         modifier = modifier,
     ) {
@@ -253,7 +270,7 @@ internal fun ProcessingPill(text: String, modifier: Modifier = Modifier) {
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = Color.White)
+            CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = ClipLexColors.AccentBright)
             Spacer(Modifier.width(7.dp))
             Text(text, style = MaterialTheme.typography.labelSmall, maxLines = 2)
         }
