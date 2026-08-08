@@ -14,6 +14,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ShortLanguageLearner"
+rootProject.name = "ClipLex"
 include(":app")
 
