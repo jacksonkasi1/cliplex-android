@@ -1,40 +1,73 @@
-# Learn This for Android
+# ClipLex
 
-Learn This is an Android 10+ video-first language-learning app. A user explicitly captures a short moment from another app through Android's `MediaProjection` and `AudioPlaybackCapture` APIs, then reviews that exact private clip with local `whisper.cpp` transcription, on-device ML Kit translation, synchronized subtitles, and vocabulary actions.
+**Turn every clip into a language lesson.**
 
-No source video is downloaded or scraped. User-initiated lesson clips, audio, transcripts, translations, and saved words stay in app-private storage and are not uploaded.
+ClipLex is a private, on-device Android language-learning app that transforms short moments from videos into replayable lessons, translated vocabulary, quizzes, speaking practice, and AI tutoring.
 
-## Build
+[Download the latest ClipLex APK](https://github.com/jacksonkasi1/cliplex-android/releases/latest/download/cliplex-v1.0.0-alpha01.apk)
 
-Prerequisites are Android SDK 36, NDK `27.2.12479018`, CMake `3.22.1`, JDK 17, and an initialized submodule:
+## What ClipLex does
+
+ClipLex learns from media you already watch—YouTube Shorts, Instagram Reels, TikTok, local videos, podcasts, and other apps that allow Android playback capture. It does not download or scrape the source video.
+
+- Captures a short user-selected audio or video moment.
+- Transcribes speech locally with `whisper.cpp` or Android on-device recognition.
+- Translates sentences and vocabulary with on-device ML Kit models.
+- Opens words with their native-language meaning and English-letter pronunciation, such as `भाई → bhai`.
+- Saves useful words with their correct source and meaning languages.
+- Creates lesson-grounded quizzes automatically.
+- Scores pronunciation privately using the microphone and local Whisper inference.
+- Provides an optional Gemma 3 1B tutor grounded in the captured lesson.
+- Uses an audio-focused player by default, with video available when the learner wants it.
+
+## How it works
+
+1. Choose the language you are learning and your native language.
+2. Start Learning Mode and approve Android's playback-capture prompt.
+3. Play a permitted video or audio source, then start and finish a short capture.
+4. ClipLex creates a private lesson containing synchronized audio/video, transcript, and translation.
+5. Tap words to hear them, view meanings, see English-script pronunciation, or save them.
+6. Open **Practice** for quizzes, Speak & Match pronunciation, and lesson-grounded AI help.
+
+Captured media, transcripts, vocabulary, and AI prompts stay on the device. Protected or DRM media may block Android playback capture; ClipLex does not bypass platform or source-app restrictions.
+
+## Product identity
+
+- App name: **ClipLex**
+- Play Store title: **ClipLex – Learn from Videos**
+- Tagline: **Turn every clip into a language lesson.**
+- Android package: `com.jacksonkasi.cliplex`
+- Repository: `cliplex-android`
+
+## Install
+
+ClipLex currently requires Android 10 or newer on an ARM64 device.
+
+1. Download [`cliplex-v1.0.0-alpha01.apk`](https://github.com/jacksonkasi1/cliplex-android/releases/latest/download/cliplex-v1.0.0-alpha01.apk).
+2. Allow installation from your browser or file manager when Android asks.
+3. Open ClipLex and download the suggested local speech model during onboarding.
+
+The application works without Gemma through its grounded quiz and tutor fallback. Gemma smart explanations require the separately licensed local Gemma 3 1B model.
+
+## Build from source
+
+Requirements: Android SDK 36, NDK `27.2.12479018`, CMake `3.22.1`, JDK 21, and the initialized `whisper.cpp` submodule.
 
 ```powershell
 git submodule update --init --recursive
-.\gradlew.bat testOverlayDebugUnitTest assembleOverlayDebug
+.\gradlew.bat :app:testSafeDebugUnitTest :app:assembleSafeDebug
 ```
 
-Install the floating-control flavor on a connected ARM64 phone:
+Install the safe build on a connected device:
 
 ```powershell
-.\gradlew.bat installOverlayDebug
+adb install -r app\build\outputs\apk\safe\debug\app-safe-debug.apk
 ```
 
-Speech models are not bundled. Choose **English Only** or **Multiple Languages** separately from the translation mother tongue. The app downloads only that mode's approximately 31 MiB Tiny model. Downloads use a private `.part` file and are accepted only after exact-size and SHA-256 verification.
+The `overlay` flavor additionally provides an optional floating capture control.
 
-## Current flow
+## Goal
 
-1. Choose a learning mode and a supported mother tongue.
-2. Download the required offline Tiny model. Switching modes keeps already downloaded models and requests only the missing one.
-3. Tap Start Learning and approve the audio and Android screen-capture prompts. Android 14+ requires fresh screen-capture consent for each new learning session.
-4. Open a source app and play permitted spoken media. Learning Mode is armed but does not save anything yet.
-5. Tap the small green floating control (or Start Capture in the app/notification) to begin. Tap the red control to stop.
-6. Learn This opens the exact new lesson automatically. The captured video appears first, English transcription appears next, and translation follows without blocking the source text.
-7. Replay or seek the lesson, switch Word by Word/Sentence/Tamil View, tap English words, pronounce or save them, or reopen the lesson from History.
-
-Source applications can prohibit playback capture. The app does not bypass that Android restriction and reports zero-filled/blocked capture separately from quiet audio and ASR failures. Capture negotiates 48 kHz, 44.1 kHz, and 16 kHz device formats, then downmixes and resamples locally to Whisper's 16 kHz mono input.
-
-**Capture video** is on by default and can be disabled in Settings. If video capture is disabled or unavailable, the same flow produces an audio/text lesson. Delete Video preserves the lesson, transcript, audio, and saved words; Delete Lesson removes the session and its private media.
-
-The floating control is optional. Its permission and notification settings are secondary actions under the Settings icon; in-app and notification controls remain available.
+ClipLex aims to turn everyday watching into active learning: capture a meaningful moment, understand it immediately, retain its vocabulary, practise saying it, and revisit it through personalized exercises without sending private learning data to a server.
 
 See [development setup](docs/DEVELOPMENT_SETUP.md), [capture diagnostics](docs/AUDIO_CAPTURE_DIAGNOSTICS.md), and [known limitations](docs/KNOWN_LIMITATIONS.md).

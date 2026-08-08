@@ -17,7 +17,7 @@
 - `build.gradle.kts` (root)
 - `app/build.gradle.kts`
 - `app/src/main/AndroidManifest.xml`
-- `app/src/main/java/.../LearnThisApplication.kt`
+- `app/src/main/java/.../ClipLexApplication.kt`
 - `app/src/main/java/.../MainActivity.kt`
 - `app/src/main/java/.../ui/theme/Theme.kt`
 - `app/src/main/res/values/strings.xml`

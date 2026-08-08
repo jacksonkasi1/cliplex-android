@@ -2,7 +2,7 @@
 
 Verified local tool locations on 2026-08-07:
 
-- Project: `D:\WORK\WORK\OPENSOURCE\learn-this-android`
+- Project: `D:\WORK\WORK\OPENSOURCE\cliplex-android`
 - Android SDK / ADB: `D:\Program\Android\sdk`
 - NDK: `27.2.12479018`
 - CMake: `3.22.1`

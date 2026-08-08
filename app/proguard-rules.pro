@@ -1,7 +1,7 @@
 # Add project specific rules here
--keep class com.learnthis.whisper.** { *; }
--keep class com.learnthis.capture.** { *; }
--keep class com.learnthis.util.NativeBridge { *; }
+-keep class com.jacksonkasi.cliplex.whisper.** { *; }
+-keep class com.jacksonkasi.cliplex.capture.** { *; }
+-keep class com.jacksonkasi.cliplex.util.NativeBridge { *; }
 
 # Keep native method signatures
 -keepclasseswithmembernames class * {
@@ -9,9 +9,9 @@
 }
 
 # Keep data classes
--keepclassmembers class com.learnthis.domain.model.** {
+-keepclassmembers class com.jacksonkasi.cliplex.domain.model.** {
  <fields>;
 }
--keepclassmembers class com.learnthis.data.model.** {
+-keepclassmembers class com.jacksonkasi.cliplex.data.model.** {
  <fields>;
 }

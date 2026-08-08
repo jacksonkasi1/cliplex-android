@@ -6,12 +6,12 @@ plugins {
 }
 
 android {
- namespace = "com.learnthis"
+ namespace = "com.jacksonkasi.cliplex"
  compileSdk = 36
  ndkVersion = "27.2.12479018"
 
  defaultConfig {
- applicationId = "com.learnthis"
+ applicationId = "com.jacksonkasi.cliplex"
  minSdk = 29
  targetSdk = 36
  versionCode = 1
@@ -47,7 +47,6 @@ android {
  }
  create("overlay") {
  dimension = "permissionMode"
- applicationIdSuffix = ".overlay"
  versionNameSuffix = "-overlay"
  buildConfigField("boolean", "OVERLAY_SUPPORTED", "true")
  }
@@ -60,8 +59,10 @@ android {
  buildConfigField("boolean", "BENCHMARK_ENABLED", "true")
  }
  release {
- isMinifyEnabled = true
- isShrinkResources = true
+ // LiteRT-LM currently ships Kotlin metadata newer than the bundled R8 parser.
+ // Keep alpha releases unminified until the Android toolchain supports it.
+ isMinifyEnabled = false
+ isShrinkResources = false
  buildConfigField("boolean", "BENCHMARK_ENABLED", "false")
  proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
  }
@@ -78,7 +79,11 @@ android {
  sourceCompatibility = JavaVersion.VERSION_17
  targetCompatibility = JavaVersion.VERSION_17
  }
- kotlinOptions { jvmTarget = "17" }
+ kotlin {
+  compilerOptions {
+   jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+  }
+ }
  buildFeatures {
  compose = true
  buildConfig = true
@@ -104,12 +109,13 @@ dependencies {
  implementation("androidx.datastore:datastore-preferences:1.1.4")
  implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1")
  implementation("com.google.mlkit:translate:17.0.3")
+ implementation("com.google.ai.edge.litertlm:litertlm-android:0.15.0")
  implementation("androidx.core:core-ktx:1.15.0")
  implementation("androidx.media:media:1.7.0")
  implementation("com.squareup.okhttp3:okhttp:4.12.0")
- implementation("androidx.room:room-runtime:2.7.0")
- implementation("androidx.room:room-ktx:2.7.0")
- kapt("androidx.room:room-compiler:2.7.0")
+ implementation("androidx.room:room-runtime:2.8.4")
+ implementation("androidx.room:room-ktx:2.8.4")
+ kapt("androidx.room:room-compiler:2.8.4")
 
  debugImplementation("androidx.compose.ui:ui-tooling")
  testImplementation("junit:junit:4.13.2")

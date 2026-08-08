@@ -17,7 +17,7 @@
 
 #include "whisper.h"
 
-#define LOG_TAG "LearnThisNative"
+#define LOG_TAG "ClipLexNative"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
@@ -653,24 +653,24 @@ void free_model_locked() {
 }  // namespace
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_learnthis_util_NativeBridge_getNativeVersion(JNIEnv *env, jobject) {
+Java_com_jacksonkasi_cliplex_util_NativeBridge_getNativeVersion(JNIEnv *env, jobject) {
     return new_jstring_from_utf8(env, whisper_print_system_info());
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_learnthis_util_NativeBridge_isNativeReady(JNIEnv *, jobject) {
+Java_com_jacksonkasi_cliplex_util_NativeBridge_isNativeReady(JNIEnv *, jobject) {
     return JNI_TRUE;
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_learnthis_util_NativeBridge_whisperLoadModel(JNIEnv *env, jobject, jstring model_path) {
+Java_com_jacksonkasi_cliplex_util_NativeBridge_whisperLoadModel(JNIEnv *env, jobject, jstring model_path) {
     const std::string path = string_from_jstring(env, model_path, "");
     std::lock_guard<std::mutex> guard(g_mutex);
     return ensure_model_locked(path).success ? JNI_TRUE : JNI_FALSE;
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_learnthis_util_NativeBridge_whisperTranscribe(
+Java_com_jacksonkasi_cliplex_util_NativeBridge_whisperTranscribe(
         JNIEnv *env, jobject, jshortArray samples, jstring language, jint n_threads) {
     const NativeTranscriptionOutcome outcome = run_transcription(
             env, samples, string_from_jstring(env, language, "auto"), n_threads, false, nullptr);
@@ -680,18 +680,18 @@ Java_com_learnthis_util_NativeBridge_whisperTranscribe(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_learnthis_util_NativeBridge_whisperFreeModel(JNIEnv *, jobject) {
+Java_com_jacksonkasi_cliplex_util_NativeBridge_whisperFreeModel(JNIEnv *, jobject) {
     std::lock_guard<std::mutex> guard(g_mutex);
     free_model_locked();
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_learnthis_whisper_NativeBridge_getNativeSystemInfo(JNIEnv *env, jobject) {
+Java_com_jacksonkasi_cliplex_whisper_NativeBridge_getNativeSystemInfo(JNIEnv *env, jobject) {
     return new_jstring_from_utf8(env, whisper_print_system_info());
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_learnthis_whisper_NativeBridge_whisperLoadModelDetailed(
+Java_com_jacksonkasi_cliplex_whisper_NativeBridge_whisperLoadModelDetailed(
         JNIEnv *env, jobject, jstring model_path) {
     const std::string path = string_from_jstring(env, model_path, "");
     std::lock_guard<std::mutex> guard(g_mutex);
@@ -700,7 +700,7 @@ Java_com_learnthis_whisper_NativeBridge_whisperLoadModelDetailed(
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_learnthis_whisper_NativeBridge_whisperTranscribeDetailed(
+Java_com_jacksonkasi_cliplex_whisper_NativeBridge_whisperTranscribeDetailed(
         JNIEnv *env,
         jobject,
         jshortArray samples,
@@ -720,7 +720,7 @@ Java_com_learnthis_whisper_NativeBridge_whisperTranscribeDetailed(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_learnthis_whisper_NativeBridge_whisperFreeModel(JNIEnv *, jobject) {
+Java_com_jacksonkasi_cliplex_whisper_NativeBridge_whisperFreeModel(JNIEnv *, jobject) {
     std::lock_guard<std::mutex> guard(g_mutex);
     free_model_locked();
 }

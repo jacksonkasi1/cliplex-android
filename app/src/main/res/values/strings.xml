@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
- <string name="app_name">Learn This</string>
- <string name="app_tagline">Learn from any video</string>
+ <string name="app_name">ClipLex</string>
+ <string name="app_tagline">Turn every clip into a language lesson.</string>
  <string name="start_learning_mode">Start Learning Mode</string>
  <string name="what_is_your_mother_tongue">What is your mother tongue?</string>
  <string name="select_language">Select your language</string>
@@ -26,7 +26,7 @@
  <string name="error_no_speech">Audio was captured, but spoken dialogue was not detected.</string>
  <string name="error_model_failure">The speech model could not process this audio.</string>
  <string name="error_translation">Translation failed.</string>
- <string name="learn_this">Learn This</string>
+ <string name="cliplex">ClipLex</string>
  <string name="finish">Finish</string>
  <string name="audio_diagnostics">Audio Diagnostics</string>
  <string name="benchmark">Benchmark</string>

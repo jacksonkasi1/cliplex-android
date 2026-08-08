@@ -5,7 +5,7 @@
 - Branch: `feature/phase-10-history`.
 - Learning Mode now arms after consent and saves nothing until an explicit floating, in-app, or notification Start action.
 - Capture Video defaults on. One clip records the projected display as H.264, captures permitted playback PCM, muxes AAC into the MP4, and retains a private 16 kHz mono WAV. Recorder or mux failure falls back to an audio lesson.
-- Stop launches Learn This directly, shows a specific preparing state, and opens the exact new Room-backed lesson. English transcription is persisted/displayed before translation.
+- Stop launches ClipLex directly, shows a specific preparing state, and opens the exact new Room-backed lesson. English transcription is persisted/displayed before translation.
 - The lesson UI supports video/audio playback, play/pause/replay, ±10 seconds, scrubbing, Word by Word/Sentence/Tamil View, synchronized subtitles, word translation, Android TTS, saved words, Delete Video, and confirmed Delete Lesson.
 - Room migrated from version 1 to 2 without destructive migration. Lesson media is app-private and excluded from backup/device transfer.
 - English Only uses `ggml-tiny.en-q5_1.bin`, fixed `en`, six threads, and the validated `audio_ctx=512` short path with timed multi-segment output. Multiple Languages uses the verified multilingual Tiny model and automatic detection that continues into transcription.

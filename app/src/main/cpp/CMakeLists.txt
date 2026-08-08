@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22.1)
-project(learnthis LANGUAGES C CXX)
+project(cliplex LANGUAGES C CXX)
 
 set(WHISPER_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../native/whisper.cpp")
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
@@ -32,14 +32,14 @@ if (CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
     endforeach()
 endif()
 
-add_library(learn-this-native SHARED native-lib.cpp)
-target_include_directories(learn-this-native PRIVATE
+add_library(cliplex-native SHARED native-lib.cpp)
+target_include_directories(cliplex-native PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${WHISPER_ROOT}/include"
 )
-target_compile_options(learn-this-native PRIVATE
+target_compile_options(cliplex-native PRIVATE
     -fvisibility=hidden
     $<$<CONFIG:Debug>:-O3>
     $<$<NOT:$<CONFIG:Debug>>:-O3>
 )
-target_link_libraries(learn-this-native PRIVATE whisper android log)
+target_link_libraries(cliplex-native PRIVATE whisper android log)
