@@ -51,9 +51,11 @@ The application works without Gemma through its grounded quiz and tutor fallback
 
 ## Build from source
 
-Requirements: Android SDK 36, NDK `27.2.12479018`, CMake `3.22.1`, JDK 21, and the initialized `whisper.cpp` submodule.
+Requirements: Android SDK 36, NDK `27.2.12479018`, CMake `3.22.1`, JDK 17 or newer, ADB, and Git with submodule support.
 
 ```powershell
+git clone --recurse-submodules https://github.com/jacksonkasi1/cliplex-android.git
+cd cliplex-android
 git submodule update --init --recursive
 .\gradlew.bat :app:testSafeDebugUnitTest :app:assembleSafeDebug
 ```
@@ -66,8 +68,33 @@ adb install -r app\build\outputs\apk\safe\debug\app-safe-debug.apk
 
 The `overlay` flavor additionally provides an optional floating capture control.
 
+## Run and validate on Arm64
+
+1. Connect an Android 10+ Arm64 phone with USB debugging enabled and run
+   `adb devices -l`.
+2. Install `safeDebug` with the command above and open ClipLex.
+3. Select English during onboarding and download **Whisper Tiny English
+   (Q5_1)**. Model files are downloaded separately and integrity-checked.
+4. Capture permitted playback, finish the clip, and confirm that ClipLex shows
+   a transcript, translation, synchronized lesson, tappable word meanings, and
+   practice activities.
+5. In a debug build, open diagnostics and run **Run known-good ASR test**. A
+   passing result must contain recognizable JFK text and native timing fields.
+6. Follow [`benchmarks/BENCHMARK.md`](benchmarks/BENCHMARK.md) to reproduce the
+   Arm64 baseline-versus-optimized Whisper comparison.
+
+Verified physical target: OPPO CPH2781, MediaTek MT6835, `arm64-v8a`, Android
+16/API 36. See [Arm optimization details](docs/ARM_OPTIMIZATION.md) and the
+[preserved device result](benchmarks/results/oppo-cph2781.md).
+
 ## Goal
 
 ClipLex aims to turn everyday watching into active learning: capture a meaningful moment, understand it immediately, retain its vocabulary, practise saying it, and revisit it through personalized exercises without sending private learning data to a server.
 
 See [development setup](docs/DEVELOPMENT_SETUP.md), [capture diagnostics](docs/AUDIO_CAPTURE_DIAGNOSTICS.md), and [known limitations](docs/KNOWN_LIMITATIONS.md).
+
+## License
+
+ClipLex source code is available under the [MIT License](LICENSE), copyright
+2026 Peacock India. Third-party libraries, model weights, and assets remain
+under their own terms; see [third-party notices](THIRD_PARTY_NOTICES.md).
