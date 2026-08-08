@@ -26,6 +26,8 @@
 	<application
 		android:name=".LearnThisApplication"
 		android:allowBackup="false"
+		android:dataExtractionRules="@xml/data_extraction_rules"
+		android:fullBackupContent="false"
 		android:icon="@android:drawable/ic_menu_compass"
 		android:label="@string/app_name"
 		android:supportsRtl="true"
@@ -35,6 +37,7 @@
 		<activity
 			android:name=".MainActivity"
 			android:exported="true"
+			android:launchMode="singleTask"
 			android:theme="@style/Theme.LearnThis">
 			<intent-filter>
 				<action android:name="android.intent.action.MAIN" />

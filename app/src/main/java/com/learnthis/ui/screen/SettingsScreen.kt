@@ -68,7 +68,7 @@ fun SettingsScreen(
  ) {
  Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
  Text("Language", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
- AppLanguage.entries.forEach { language ->
+ AppLanguage.entries.filter { it.translationSupported }.forEach { language ->
  Row(
  modifier = Modifier.fillMaxWidth(),
  horizontalArrangement = Arrangement.SpaceBetween,
@@ -90,6 +90,24 @@ fun SettingsScreen(
  ) {
  Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
  Text("Capture", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+ Row(
+ modifier = Modifier.fillMaxWidth(),
+ horizontalArrangement = Arrangement.SpaceBetween,
+ verticalAlignment = Alignment.CenterVertically,
+ ) {
+ Column(Modifier.weight(1f).padding(end = 12.dp)) {
+ Text("Capture video with learning sessions")
+ Text(
+ "Keep the video clip so you can review it while learning.",
+ style = MaterialTheme.typography.bodySmall,
+ color = MaterialTheme.colorScheme.onSurfaceVariant,
+ )
+ }
+ Switch(
+ checked = uiState.captureVideo,
+ onCheckedChange = settingsViewModel::setCaptureVideo,
+ )
+ }
  Row(
  modifier = Modifier.fillMaxWidth(),
  horizontalArrangement = Arrangement.SpaceBetween,

@@ -14,10 +14,32 @@ if (NOT EXISTS "${WHISPER_ROOT}/include/whisper.h")
 endif()
 
 add_subdirectory("${WHISPER_ROOT}" "${CMAKE_BINARY_DIR}/whisper")
+
+# Android Studio/Gradle configures native debug variants with -O0 by default. That
+# makes whisper.cpp several times slower and obscures real device diagnostics.
+# Keep symbols/assertions, but optimize the compute-heavy static targets. Avoid
+# -ffast-math, device-specific -mcpu flags, and LTO here because those can change
+# numerical behavior or reduce portability across supported arm64 devices.
+if (CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
+    foreach(performance_target whisper ggml ggml-base ggml-cpu)
+        if (TARGET ${performance_target})
+            target_compile_options(${performance_target} PRIVATE
+                $<$<CONFIG:Debug>:-O3>
+                $<$<CONFIG:RelWithDebInfo>:-O3>
+                $<$<CONFIG:Release>:-O3>
+            )
+        endif()
+    endforeach()
+endif()
+
 add_library(learn-this-native SHARED native-lib.cpp)
 target_include_directories(learn-this-native PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${WHISPER_ROOT}/include"
 )
-target_compile_options(learn-this-native PRIVATE -O3 -fvisibility=hidden)
+target_compile_options(learn-this-native PRIVATE
+    -fvisibility=hidden
+    $<$<CONFIG:Debug>:-O3>
+    $<$<NOT:$<CONFIG:Debug>>:-O3>
+)
 target_link_libraries(learn-this-native PRIVATE whisper android log)

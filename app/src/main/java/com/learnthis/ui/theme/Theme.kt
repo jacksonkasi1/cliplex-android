@@ -13,29 +13,37 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val LightColorScheme = lightColorScheme(
- primary = Color(0xFF6750A4),
+ primary = Color(0xFF079455),
  onPrimary = Color.White,
- secondary = Color(0xFF625B71),
+ primaryContainer = Color(0xFFDDF7E9),
+ onPrimaryContainer = Color(0xFF063C27),
+ secondary = Color(0xFF1769E0),
  onSecondary = Color.White,
- tertiary = Color(0xFF7D5260),
+ tertiary = Color(0xFF7C3AED),
  onTertiary = Color.White,
- surface = Color(0xFFFFFBFE),
- onSurface = Color(0xFF1C1B1F),
- background = Color(0xFFFFFBFE),
- onBackground = Color(0xFF1C1B1F)
+ surface = Color(0xFFFBFDFC),
+ onSurface = Color(0xFF10231B),
+ surfaceVariant = Color(0xFFEAF2EE),
+ onSurfaceVariant = Color(0xFF52645C),
+ background = Color(0xFFF4F8F6),
+ onBackground = Color(0xFF10231B)
 )
 
 private val DarkColorScheme = darkColorScheme(
- primary = Color(0xFFD0BCFF),
- onPrimary = Color(0xFF381E72),
- secondary = Color(0xFFCCC2DC),
- onSecondary = Color(0xFF332D41),
- tertiary = Color(0xFFEFB8C8),
- onTertiary = Color(0xFF492532),
- surface = Color(0xFF1C1B1F),
- onSurface = Color(0xFFE6E1E5),
- background = Color(0xFF1C1B1F),
- onBackground = Color(0xFFE6E1E5)
+ primary = Color(0xFF5DDA99),
+ onPrimary = Color(0xFF003921),
+ primaryContainer = Color(0xFF075F3B),
+ onPrimaryContainer = Color(0xFFB7F4D2),
+ secondary = Color(0xFF9FC2FF),
+ onSecondary = Color(0xFF00315F),
+ tertiary = Color(0xFFCAB4FF),
+ onTertiary = Color(0xFF3B176F),
+ surface = Color(0xFF101814),
+ onSurface = Color(0xFFE1EAE5),
+ surfaceVariant = Color(0xFF25352D),
+ onSurfaceVariant = Color(0xFFBAC9C1),
+ background = Color(0xFF0D1511),
+ onBackground = Color(0xFFE1EAE5)
 )
 
 @Composable
@@ -49,7 +57,7 @@ fun LearnThisTheme(
  if (!view.isInEditMode) {
  SideEffect {
  val window = (view.context as Activity).window
- window.statusBarColor = colorScheme.primary.toArgb()
+ window.statusBarColor = colorScheme.surface.toArgb()
  WindowCompat.getInsetsController(window, view)
  .isAppearanceLightStatusBars = !darkTheme
  }

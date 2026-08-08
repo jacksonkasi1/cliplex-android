@@ -20,6 +20,13 @@ class Pcm16Test {
 		assertArrayEquals(shortArrayOf(0, 32767), Pcm16.stereoToMono(shortArrayOf(32767, -32768, 32767, 32767)))
 	}
 
+	@Test fun phaseInvertedStereoDoesNotCollapseToSilence() {
+		val stereo = ShortArray(200) { index -> if (index % 2 == 0) 12_000 else -12_000 }
+		val mono = Pcm16.stereoToMono(stereo)
+		assertEquals(100, mono.size)
+		assertEquals(12_000, mono.first().toInt())
+	}
+
 	@Test fun resamplesToExpectedLength() {
 		assertEquals(16_000, Pcm16.resampleLinear(ShortArray(48_000), 48_000, 16_000).size)
 	}

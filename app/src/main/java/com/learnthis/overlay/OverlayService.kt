@@ -1,7 +1,9 @@
 package com.learnthis.overlay
 
+import android.annotation.SuppressLint
 import android.app.Service
 import android.content.Intent
+import android.content.Context
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -13,6 +15,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.ImageButton
+import com.learnthis.MainActivity
 import com.learnthis.service.CaptureService
 import kotlin.math.abs
 
@@ -41,11 +44,23 @@ class OverlayService : Service() {
 		if (!Settings.canDrawOverlays(this)) return
 		val density = resources.displayMetrics.density
 		val sizePx = (60 * density).toInt()
-		val button = ImageButton(this).apply {
+		val button = AccessibleImageButton(this).apply {
 			contentDescription = "Learn This — start or finish capture"
 			setColorFilter(Color.WHITE)
 			elevation = 8 * density
 			setPadding((14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt(), (14 * density).toInt())
+			setOnClickListener {
+				if (CaptureService.captureState.value == CaptureService.CaptureState.Capturing) {
+					// The overlay tap is a direct user action, so launch the lesson Activity directly.
+					// MainActivity asks the service to finalize before it renders the captured lesson.
+					startActivity(Intent(this@OverlayService, MainActivity::class.java).apply {
+						action = MainActivity.ACTION_FINISH_CAPTURE_AND_OPEN
+						addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+					})
+				} else {
+					startService(Intent(this@OverlayService, CaptureService::class.java).setAction(CaptureService.ACTION_BEGIN))
+				}
+			}
 		}
 		updateAppearance(button)
 		val params = WindowManager.LayoutParams(
@@ -77,7 +92,7 @@ class OverlayService : Service() {
 		button.contentDescription = if (capturing) "Finish Learn This capture" else "Start Learn This capture"
 		button.background = GradientDrawable().apply {
 			shape = GradientDrawable.OVAL
-			setColor(if (capturing) Color.rgb(190, 45, 55) else Color.rgb(65, 82, 180))
+			setColor(if (capturing) Color.rgb(210, 52, 65) else Color.rgb(8, 154, 82))
 		}
 	}
 
@@ -109,7 +124,7 @@ class OverlayService : Service() {
 				}
 				MotionEvent.ACTION_UP -> {
 					if (!moved) {
-						startService(Intent(this@OverlayService, CaptureService::class.java).setAction(CaptureService.ACTION_TOGGLE))
+						ignored.performClick()
 					} else {
 						val screenWidth = resources.displayMetrics.widthPixels
 						params.x = if (params.x + view.width / 2 < screenWidth / 2) 0 else screenWidth - view.width
@@ -117,6 +132,7 @@ class OverlayService : Service() {
 					}
 					return true
 				}
+				MotionEvent.ACTION_CANCEL -> return true
 			}
 			return false
 		}
@@ -134,5 +150,11 @@ class OverlayService : Service() {
 
 	companion object {
 		const val ACTION_SHOW_OVERLAY = "com.learnthis.action.SHOW_OVERLAY"
+	}
+
+	// The overlay is constructed directly by a Service and has no AppCompat theme dependency.
+	@SuppressLint("AppCompatCustomView")
+	private class AccessibleImageButton(context: Context) : ImageButton(context) {
+		override fun performClick(): Boolean = super.performClick()
 	}
 }

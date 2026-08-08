@@ -3,20 +3,30 @@
 The application is Kotlin/Compose with one ARM64 JNI library. `ServiceLocator` owns DataStore, Room, the model repository, and reusable Whisper/translation engines.
 
 ```text
+Onboarding / Settings
+  -> persisted LearningMode -> one required Tiny model + Whisper language policy
+  -> persisted mother tongue -> ML Kit translation target
 MainActivity permission flow
   -> CaptureService foreground service
-     -> AudioPlaybackCaptureConfiguration + AudioRecord (16 kHz mono PCM16)
+     -> AudioPlaybackCaptureConfiguration + AudioRecord (device-native PCM16)
+     -> phase-aware stereo downmix + 16 kHz resampling
      -> bounded 60-second in-memory ring buffer
+     -> optional MediaProjection VirtualDisplay + H.264 screen recording
+     -> AAC encode captured playback PCM + MP4 remux
+     -> private WAV + optional MP4
      -> AudioDiagnostics
   -> HomeViewModel (one inference at a time)
      -> reusable WhisperEngine -> JNI -> whisper.cpp
      -> ML Kit Translator model download + sentence translation
      -> progressive UI list updates
-     -> Room session metadata
+     -> progressive Room LearningSession update
+  -> LearningSessionScreen (video/audio playback + synchronized learning UI)
 ```
 
-`CaptureService` is armed after MediaProjection consent. It continuously owns one `AudioRecord` but only writes into the session buffer between Start Capture and Finish. The overlay and notification issue those actions without reopening `AudioRecord`. Projection revocation, capture read errors, silence, zero-filled capture, short capture, native failure, and translation failure have distinct states.
+`CaptureService` becomes Armed after MediaProjection consent and a successful `AudioRecord.startRecording()`. PCM reads are intentionally discarded until the user explicitly taps Start. With Capture Video enabled, that tap creates the projection's single `VirtualDisplay` and starts an H.264 surface recorder; a second tap ends the one clip, adds captured playback PCM as AAC, writes the 16 kHz WAV, creates the Room row, ends projection, and opens that exact lesson. Android 14+'s one-token/one-display rule therefore maps to one explicit clip and fresh consent for the next clip.
 
-Native code pins `whisper.cpp` v1.7.6 as a Git submodule. A mutex protects the single reusable native context. PCM16 samples are normalized to float in JNI, transcription uses four threads, timestamps are returned in milliseconds, and the detected source language is passed to ML Kit. Models remain in private app storage and are never committed.
+`MainActivity` uses a single task so returning from a source app or opening the capture notification reuses the existing Compose/ViewModel instance. On Android 14+ it requests whole-display projection to avoid an OEM single-app chooser that can return without establishing playback capture. Session processing waits for the initial learning-mode model preload, and model loading/inference are serialized around the single native context.
 
-Room stores session metadata only (language pair, duration, segment count, time). Captured PCM is held only for the active UI session so sentence replay can slice by Whisper timestamps; it is not written to Room or uploaded.
+Native code pins `whisper.cpp` v1.7.6 as a Git submodule. A mutex protects the single reusable native context. PCM16 samples are normalized to float in JNI, timed segments are emitted progressively, and the fixed/detected source language is passed to ML Kit. Short English clips retain the validated `audio_ctx=512` fast path while preserving timestamps for lesson synchronization. Models remain in private app storage and are never committed or silently bundled into the APK.
+
+Room version 2 stores lesson metadata, private media paths, processing state, errors, and JSON-encoded timed segments. MP4/WAV files live only under the app's private learning-session directory. `SessionRepository` validates canonical paths before deletion. Delete Video clears only MP4; Delete Lesson removes both media files and the Room row. Saved vocabulary is independent of session deletion.

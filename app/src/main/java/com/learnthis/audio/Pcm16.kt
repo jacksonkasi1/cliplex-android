@@ -16,9 +16,27 @@ object Pcm16 {
 
 	fun stereoToMono(interleaved: ShortArray): ShortArray {
 		require(interleaved.size % 2 == 0) { "Stereo PCM must contain complete frames" }
-		return ShortArray(interleaved.size / 2) { frame ->
+		val averaged = ShortArray(interleaved.size / 2) { frame ->
 			((interleaved[frame * 2].toInt() + interleaved[frame * 2 + 1].toInt()) / 2).toShort()
 		}
+		if (averaged.isEmpty()) return averaged
+		var leftEnergy = 0.0
+		var rightEnergy = 0.0
+		var mixedEnergy = 0.0
+		for (frame in averaged.indices) {
+			val left = interleaved[frame * 2].toDouble()
+			val right = interleaved[frame * 2 + 1].toDouble()
+			val mixed = averaged[frame].toDouble()
+			leftEnergy += left * left
+			rightEnergy += right * right
+			mixedEnergy += mixed * mixed
+		}
+		val strongerEnergy = maxOf(leftEnergy, rightEnergy)
+		if (strongerEnergy > 0.0 && mixedEnergy < strongerEnergy * 0.01) {
+			val channelOffset = if (leftEnergy >= rightEnergy) 0 else 1
+			return ShortArray(averaged.size) { frame -> interleaved[frame * 2 + channelOffset] }
+		}
+		return averaged
 	}
 
 	fun resampleLinear(samples: ShortArray, sourceRate: Int, targetRate: Int): ShortArray {

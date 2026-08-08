@@ -19,7 +19,6 @@ android {
  testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
  vectorDrawables.useSupportLibrary = true
  ndk.abiFilters += "arm64-v8a"
- buildConfigField("boolean", "WHISPER_BUNDLED", rootProject.file("models/ggml-base-q5_1.bin").isFile.toString())
 
  externalNativeBuild {
  cmake {
@@ -37,7 +36,6 @@ android {
  }
  }
 
- sourceSets.getByName("main").assets.srcDir(rootProject.file("models"))
  sourceSets.getByName("debug").assets.srcDir(rootProject.file("native/whisper.cpp/samples"))
  androidResources.noCompress += "bin"
 

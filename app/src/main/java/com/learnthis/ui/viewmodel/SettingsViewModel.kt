@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 data class SettingsUiState(
  val selectedLanguage: AppLanguage = AppLanguage.ENGLISH,
  val autoTranslate: Boolean = true,
+ val captureVideo: Boolean = true,
 )
 
 class SettingsViewModel(
@@ -23,7 +24,7 @@ class SettingsViewModel(
 
  init {
  viewModelScope.launch {
- preferencesRepository.selectedLanguage.collect { lang ->
+ preferencesRepository.motherTongue.collect { lang ->
  _uiState.value = _uiState.value.copy(selectedLanguage = lang ?: AppLanguage.ENGLISH)
  }
  }
@@ -32,12 +33,17 @@ class SettingsViewModel(
  _uiState.value = _uiState.value.copy(autoTranslate = auto)
  }
  }
+ viewModelScope.launch {
+ preferencesRepository.captureVideo.collect { enabled ->
+ _uiState.value = _uiState.value.copy(captureVideo = enabled)
+ }
+ }
  }
 
  fun selectLanguage(language: AppLanguage) {
  _uiState.value = _uiState.value.copy(selectedLanguage = language)
  viewModelScope.launch {
- preferencesRepository.saveSelectedLanguage(language)
+ preferencesRepository.setMotherTongue(language)
  }
  }
 
@@ -46,5 +52,10 @@ class SettingsViewModel(
  viewModelScope.launch {
  preferencesRepository.saveAutoTranslate(enabled)
  }
+ }
+
+ fun setCaptureVideo(enabled: Boolean) {
+ _uiState.value = _uiState.value.copy(captureVideo = enabled)
+ viewModelScope.launch { preferencesRepository.setCaptureVideo(enabled) }
  }
 }

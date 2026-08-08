@@ -7,12 +7,13 @@ import com.google.mlkit.nl.translate.Translator
 import com.google.mlkit.nl.translate.TranslatorOptions
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 /**
  * ML Kit on-device translation wrapper using callback-based suspend.
  */
-class TranslationEngine private constructor() {
+class TranslationEngine internal constructor(
+ private val translatorFactory: (TranslatorOptions) -> Translator = Translation::getClient,
+) {
 
  companion object {
  @Volatile private var instance: TranslationEngine? = null
@@ -25,13 +26,14 @@ class TranslationEngine private constructor() {
  private var translator: Translator? = null
  private var currentSourceLang: String? = null
  private var currentTargetLang: String? = null
+ private var translatorReady = false
 
  suspend fun initialize(
  sourceLang: String,
  targetLang: String,
  ): Result<Unit> = suspendCancellableCoroutine { cont ->
  try {
- if (translator != null &&
+ if (translatorReady && translator != null &&
  currentSourceLang == sourceLang &&
  currentTargetLang == targetLang
  ) {
@@ -39,7 +41,7 @@ class TranslationEngine private constructor() {
  return@suspendCancellableCoroutine
  }
 
- translator?.close()
+ closeTranslator()
 
  val sourceCode = languageCode(sourceLang)
  val targetCode = languageCode(targetLang)
@@ -56,16 +58,32 @@ class TranslationEngine private constructor() {
  .setTargetLanguage(targetCode)
  .build()
 
- val createdTranslator = Translation.getClient(options)
+ val createdTranslator = translatorFactory(options)
  translator = createdTranslator
  currentSourceLang = sourceLang
  currentTargetLang = targetLang
+ translatorReady = false
+ cont.invokeOnCancellation { discardTranslator(createdTranslator) }
  val conditions = DownloadConditions.Builder().build()
  createdTranslator.downloadModelIfNeeded(conditions)
- .addOnSuccessListener { if (cont.isActive) cont.resume(Result.success(Unit)) }
- .addOnFailureListener { error -> if (cont.isActive) cont.resume(Result.failure(error)) }
+ .addOnSuccessListener {
+ if (translator === createdTranslator && cont.isActive) {
+ translatorReady = true
+ cont.resume(Result.success(Unit))
+ } else {
+ discardTranslator(createdTranslator)
+ if (cont.isActive) cont.resume(Result.failure(
+ IllegalStateException("Translation model initialization was superseded")
+ ))
+ }
+ }
+ .addOnFailureListener { error ->
+ discardTranslator(createdTranslator)
+ if (cont.isActive) cont.resume(Result.failure(error))
+ }
  } catch (e: Exception) {
- cont.resumeWithException(e)
+ closeTranslator()
+ if (cont.isActive) cont.resume(Result.failure(e))
  }
  }
 
@@ -122,12 +140,25 @@ class TranslationEngine private constructor() {
  }
 
  fun close() {
- try {
- translator?.close()
- } catch (e: Exception) { }
+ closeTranslator()
+ }
+
+ private fun closeTranslator() {
+ val previous = translator
  translator = null
  currentSourceLang = null
  currentTargetLang = null
+ translatorReady = false
+ try {
+ previous?.close()
+ } catch (_: Exception) { }
+ }
+
+ private fun discardTranslator(candidate: Translator) {
+ if (translator === candidate) closeTranslator()
+ else try {
+ candidate.close()
+ } catch (_: Exception) { }
  }
 
  private fun languageCode(language: String): String? {

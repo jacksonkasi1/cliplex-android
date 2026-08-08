@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -34,6 +35,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @Composable
 fun HistoryScreen(
 	onBack: () -> Unit,
+	onOpenSession: (Long) -> Unit = {},
 	historyViewModel: HistoryViewModel = viewModel(),
 ) {
 	val uiState by historyViewModel.uiState.collectAsState()
@@ -73,6 +75,7 @@ fun HistoryScreen(
 				items(uiState.sessions, key = { it.id }) { session ->
 					SessionItem(
 						session = session,
+						onOpen = { onOpenSession(session.id) },
 						onDelete = { historyViewModel.deleteSession(session.id) },
 					)
 				}
@@ -84,12 +87,14 @@ fun HistoryScreen(
 @Composable
 private fun SessionItem(
 	session: com.learnthis.data.local.SessionEntity,
+	onOpen: () -> Unit,
 	onDelete: () -> Unit,
 	modifier: Modifier = Modifier,
 ) {
 	Card(
 		modifier = modifier
 			.fillMaxWidth()
+			.clickable(onClick = onOpen)
 			.padding(horizontal = 16.dp, vertical = 4.dp),
 	) {
 		Row(
@@ -98,9 +103,9 @@ private fun SessionItem(
 			verticalAlignment = Alignment.CenterVertically,
 		) {
 			Column {
-				Text(text = "Session #${session.id}", style = MaterialTheme.typography.titleMedium)
+				Text(text = session.title, style = MaterialTheme.typography.titleMedium)
 				Text(
-					text = "${session.durationMs / 1000}s · ${session.segmentCount} segments",
+					text = "${session.durationMs / 1000}s · ${session.segmentCount} sentences · ${if (session.videoPath != null) "video" else "audio"}",
 					style = MaterialTheme.typography.bodySmall,
 					color = MaterialTheme.colorScheme.onSurfaceVariant,
 				)
