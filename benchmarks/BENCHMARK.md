@@ -55,17 +55,19 @@ latency guarantee.
 
 ## Public fixed input
 
-After initializing submodules, the repository contains the upstream diagnostic
-audio at:
+The exact post-conversion input is committed directly at:
 
 ```text
-native/whisper.cpp/samples/jfk.wav
+benchmarks/samples/jfk-first-9.4s-16khz-mono.wav
 ```
 
-The instrumentation runner decodes this file, resamples it to 16 kHz mono, and
-uses exactly the first 150,400 samples (9.4 seconds). It checks the input/model
-hashes and transcript content, and flushes every observation directly to CSV
-on the device.
+It is a 300,844-byte PCM16 WAV containing exactly 150,400 mono samples at
+16 kHz. Its SHA-256 is the input hash recorded above. The original phone run
+created the same bytes by deterministically decoding, resampling, and cropping
+the upstream `native/whisper.cpp/samples/jfk.wav`; the committed fixture is
+byte-for-byte identical to that benchmark input. The runner checks the
+input/model hashes and transcript content, and flushes every observation
+directly to CSV on the device.
 
 ## Repeatable procedure
 

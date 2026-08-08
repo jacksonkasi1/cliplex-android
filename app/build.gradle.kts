@@ -36,7 +36,7 @@ android {
  }
  }
 
- sourceSets.getByName("debug").assets.srcDir(rootProject.file("native/whisper.cpp/samples"))
+ sourceSets.getByName("debug").assets.srcDir(rootProject.file("benchmarks/samples"))
  androidResources.noCompress += "bin"
 
  flavorDimensions += "permissionMode"

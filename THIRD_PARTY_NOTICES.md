@@ -7,8 +7,9 @@ used by the project.
 
 ## Native speech runtime
 
-- [`whisper.cpp`](https://github.com/ggerganov/whisper.cpp), ggml, and the
-  upstream JFK diagnostic sample are included through the pinned
+- [`whisper.cpp`](https://github.com/ggerganov/whisper.cpp), ggml, the upstream
+  JFK diagnostic sample, and the deterministic benchmark crop derived from it
+  are included through or sourced from the pinned
   `native/whisper.cpp` Git submodule. Their copyright and MIT license are in
   [`native/whisper.cpp/LICENSE`](native/whisper.cpp/LICENSE).
 - Whisper model files are downloaded separately from the

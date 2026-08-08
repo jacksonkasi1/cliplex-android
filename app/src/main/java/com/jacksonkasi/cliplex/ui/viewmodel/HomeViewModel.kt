@@ -917,7 +917,9 @@ class HomeViewModel(
 			)
 			val outcome = withContext(Dispatchers.IO) {
 				runCatching<Pair<AudioHealth, WhisperTranscriptionResult>> {
-					val wav = Pcm16.readWav(context.assets.open("jfk.wav").use { it.readBytes() })
+					val wav = Pcm16.readWav(
+						context.assets.open("jfk-first-9.4s-16khz-mono.wav").use { it.readBytes() },
+					)
 					val mono = if (wav.channels == 2) Pcm16.stereoToMono(wav.samples) else wav.samples
 					val samples = Pcm16.resampleLinear(mono, wav.sampleRate, CaptureService.SAMPLE_RATE_HZ)
 					val health = AudioDiagnostics.analyze(samples, CaptureService.SAMPLE_RATE_HZ)

@@ -37,7 +37,7 @@ class WhisperArm64BenchmarkTest {
 		assertEquals(model.sha256, sha256(modelFile))
 
 		val assetBytes = InstrumentationRegistry.getInstrumentation().targetContext.assets
-			.open("jfk.wav").use { it.readBytes() }
+			.open("jfk-first-9.4s-16khz-mono.wav").use { it.readBytes() }
 		val wav = Pcm16.readWav(assetBytes)
 		val mono = if (wav.channels == 2) Pcm16.stereoToMono(wav.samples) else wav.samples
 		val resampled = Pcm16.resampleLinear(mono, wav.sampleRate, WhisperEngine.SAMPLE_RATE_HZ)
@@ -87,7 +87,7 @@ class WhisperArm64BenchmarkTest {
 					Build.MANUFACTURER, Build.MODEL, Build.DEVICE,
 					if (Build.VERSION.SDK_INT >= 31) Build.SOC_MODEL else "unknown",
 					Build.VERSION.RELEASE, Build.VERSION.SDK_INT.toString(), Build.SUPPORTED_ABIS.first(),
-					"native/whisper.cpp/samples/jfk.wav:first-9.4s-pcm16",
+					"benchmarks/samples/jfk-first-9.4s-16khz-mono.wav",
 					sha256(samples), diagnostics.audioDurationMs.toString(), diagnostics.sampleCount.toString(),
 					WhisperEngine.SAMPLE_RATE_HZ.toString(), model.fileName, model.sha256,
 					configuration, phase, run.toString(), diagnostics.threadCount.toString(),

@@ -48,7 +48,7 @@ class AndroidOnDeviceSpeechDiagnosticTest {
 			val availability = engine.isAvailable(LearningLanguage.ENGLISH)
 			assumeTrue(availability.available && availability.audioInjectionSupported)
 			val wav = InstrumentationRegistry.getInstrumentation().targetContext.assets
-				.open("jfk.wav").use { Pcm16.readWav(it.readBytes()) }
+				.open("jfk-first-9.4s-16khz-mono.wav").use { Pcm16.readWav(it.readBytes()) }
 			val mono = if (wav.channels == 2) Pcm16.stereoToMono(wav.samples) else wav.samples
 			val samples = Pcm16.resampleLinear(mono, wav.sampleRate, 16_000)
 			val result = engine.transcribe(AudioInput(samples), LearningLanguage.ENGLISH)
