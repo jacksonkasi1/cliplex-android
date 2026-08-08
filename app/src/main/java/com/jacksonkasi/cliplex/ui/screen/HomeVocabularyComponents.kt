@@ -4,7 +4,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,8 +25,10 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,7 +37,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -67,35 +67,30 @@ internal fun SavedWordsSection(
 ) {
     val indexed = words.associateBy(SavedWord::word)
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        ClipLexCard(
-            modifier = Modifier.fillMaxWidth(),
-            containerColor = ClipLexColors.GreenSoft,
-            borderColor = ClipLexColors.Green.copy(alpha = 0.2f),
-        ) {
-            Row(
-                modifier = Modifier.padding(18.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                LexiMascot(mood = LexiMood.CELEBRATING, modifier = Modifier.size(92.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("My Words", style = MaterialTheme.typography.headlineMedium, color = ClipLexColors.GreenDark)
-                    Text("Small words. Real progress. 🌱", color = ClipLexColors.InkMuted, style = MaterialTheme.typography.bodyMedium)
-                    Text("${savedWordNames.size} saved", style = MaterialTheme.typography.labelLarge, color = ClipLexColors.GreenDark, modifier = Modifier.padding(top = 5.dp))
-                }
-            }
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Saved words", style = MaterialTheme.typography.headlineMedium, color = ClipLexColors.Ink)
+            Text(
+                if (savedWordNames.isEmpty()) "Build a personal dictionary from your lessons."
+                else "${savedWordNames.size} words ready to review in $meaningLanguage.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = ClipLexColors.InkMuted,
+            )
         }
 
         if (savedWordNames.isEmpty()) {
-            ClipLexCard(Modifier.fillMaxWidth()) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = ClipLexShapes.Hero,
+                color = ClipLexColors.AccentWash,
+            ) {
                 Column(
-                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    modifier = Modifier.fillMaxWidth().padding(26.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    LexiMascot(modifier = Modifier.size(112.dp), mood = LexiMood.READY)
-                    Text("Save your first word", style = MaterialTheme.typography.titleLarge, color = ClipLexColors.Ink, modifier = Modifier.padding(top = 8.dp))
+                    LexiMascot(modifier = Modifier.size(118.dp), mood = LexiMood.READY)
+                    Text("Save your first word", style = MaterialTheme.typography.titleLarge, color = ClipLexColors.Ink)
                     Text(
-                        "Tap any word inside a lesson. Its meaning, pronunciation and source sentence will live here.",
+                        "Tap a word in any lesson to keep its meaning, pronunciation and source sentence.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = ClipLexColors.InkMuted,
                         textAlign = TextAlign.Center,
@@ -119,7 +114,7 @@ internal fun SavedWordsSection(
                 )
             }
             ClipLexActionButton(
-                text = "Refresh word meanings",
+                text = "Refresh meanings",
                 icon = Icons.Default.Refresh,
                 style = ClipLexButtonStyle.GHOST,
                 onClick = onRefresh,
@@ -140,66 +135,54 @@ internal fun SavedWordCard(
     onPronounce: () -> Unit,
 ) {
     var exampleExpanded by remember(word) { mutableStateOf(false) }
-    ClipLexCard(Modifier.fillMaxWidth()) {
+    ClipLexCard(
+        modifier = Modifier.fillMaxWidth(),
+        depth = 0.dp,
+    ) {
         Column(
-            modifier = Modifier.padding(17.dp).animateContentSize(),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(horizontal = 17.dp, vertical = 16.dp).animateContentSize(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Column(Modifier.weight(1f)) {
-                    Text("${languageName(sourceLanguage)} WORD", style = MaterialTheme.typography.labelSmall, color = ClipLexColors.InkMuted)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(languageName(sourceLanguage), style = MaterialTheme.typography.labelSmall, color = ClipLexColors.InkMuted)
                     Text(word.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.headlineSmall, color = ClipLexColors.Ink)
                     latinPronunciation(word)?.let { guide ->
-                        Text("Say it: $guide", style = MaterialTheme.typography.bodySmall, color = ClipLexColors.GreenDark)
+                        Text("Pronounce: $guide", style = MaterialTheme.typography.bodySmall, color = ClipLexColors.AccentStrong)
                     }
                 }
                 ClipLexIconBadge(
                     icon = Icons.AutoMirrored.Filled.VolumeUp,
                     contentDescription = "Hear $word",
-                    background = ClipLexColors.GreenSoft,
-                    contentColor = ClipLexColors.Green,
+                    background = ClipLexColors.AccentSoft,
+                    contentColor = ClipLexColors.Accent,
                     onClick = onPronounce,
-                )
-                Text(
-                    "Remove",
-                    modifier = Modifier.clickable(onClick = onRemove).padding(horizontal = 4.dp, vertical = 10.dp),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = ClipLexColors.Coral,
                 )
             }
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(ClipLexColors.GreenWash, ClipLexShapes.Control)
-                    .padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text("$meaningLanguage meaning", style = MaterialTheme.typography.labelSmall, color = ClipLexColors.InkMuted)
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text("Meaning in $meaningLanguage", style = MaterialTheme.typography.labelSmall, color = ClipLexColors.InkMuted)
                 Text(
-                    text = displayedMeaning ?: "$meaningLanguage translation unavailable — tap Refresh",
+                    text = displayedMeaning ?: "Translation unavailable. Refresh to try again.",
                     style = MaterialTheme.typography.titleLarge,
-                    color = if (displayedMeaning == null) ClipLexColors.Coral else ClipLexColors.GreenDark,
+                    color = if (displayedMeaning == null) ClipLexColors.CoralDark else ClipLexColors.AccentStrong,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
 
             saved?.example?.takeIf(String::isNotBlank)?.let { example ->
+                HorizontalDivider(color = ClipLexColors.Border)
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(ClipLexColors.SurfaceMuted, ClipLexShapes.Control)
-                        .clickable { exampleExpanded = !exampleExpanded }
-                        .padding(14.dp),
+                    modifier = Modifier.fillMaxWidth().clickable { exampleExpanded = !exampleExpanded },
                 ) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            "From the ${languageName(sourceLanguage)} sentence",
+                            "Source sentence",
                             style = MaterialTheme.typography.labelSmall,
                             color = ClipLexColors.InkMuted,
                             modifier = Modifier.weight(1f),
@@ -233,6 +216,18 @@ internal fun SavedWordCard(
                     }
                 }
             }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                Text(
+                    "Remove word",
+                    modifier = Modifier.clickable(onClick = onRemove).padding(horizontal = 4.dp, vertical = 7.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = ClipLexColors.Coral,
+                )
+            }
         }
     }
 }
@@ -240,38 +235,59 @@ internal fun SavedWordCard(
 @Composable
 internal fun SegmentCard(segment: TranscriptionSegment, onPlay: () -> Unit, onCopy: () -> Unit) {
     var expanded by remember(segment.text, segment.translatedText) { mutableStateOf(false) }
-    ClipLexCard(Modifier.fillMaxWidth()) {
+    ClipLexCard(Modifier.fillMaxWidth(), depth = 0.dp) {
         Column(
             modifier = Modifier.padding(16.dp).animateContentSize(),
-            verticalArrangement = Arrangement.spacedBy(9.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                 ClipLexIconBadge(
                     icon = Icons.Default.Headphones,
                     contentDescription = null,
-                    background = ClipLexColors.BlueSoft,
-                    contentColor = ClipLexColors.Blue,
+                    background = ClipLexColors.SurfaceMuted,
+                    contentColor = ClipLexColors.Accent,
                     size = 38.dp,
                 )
                 Spacer(Modifier.width(11.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(
-                        text = segment.text,
-                        fontWeight = FontWeight.Bold,
-                        color = ClipLexColors.Ink,
-                        style = MaterialTheme.typography.bodyLarge,
-                        maxLines = if (expanded) Int.MAX_VALUE else 3,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    segment.translatedText?.takeIf(String::isNotBlank)?.let {
+                    if (expanded) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 190.dp)
+                                .verticalScroll(rememberScrollState()),
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(
+                                    text = segment.text,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = ClipLexColors.Ink,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                )
+                                segment.translatedText?.takeIf(String::isNotBlank)?.let {
+                                    Text(it, color = ClipLexColors.AccentStrong, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                        }
+                    } else {
                         Text(
-                            text = it,
-                            color = ClipLexColors.GreenDark,
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = if (expanded) Int.MAX_VALUE else 2,
+                            text = segment.text,
+                            fontWeight = FontWeight.SemiBold,
+                            color = ClipLexColors.Ink,
+                            style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 3,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(top = 5.dp),
                         )
+                        segment.translatedText?.takeIf(String::isNotBlank)?.let {
+                            Text(
+                                text = it,
+                                color = ClipLexColors.AccentStrong,
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(top = 5.dp),
+                            )
+                        }
                     }
                 }
             }
@@ -283,13 +299,13 @@ internal fun SegmentCard(segment: TranscriptionSegment, onPlay: () -> Unit, onCo
                 Text(
                     if (expanded) "Show less" else "Read more",
                     style = MaterialTheme.typography.labelMedium,
-                    color = ClipLexColors.Blue,
+                    color = ClipLexColors.Accent,
                     modifier = Modifier.clickable { expanded = !expanded }.padding(9.dp),
                 )
                 Icon(
                     Icons.Default.PlayArrow,
                     contentDescription = "Replay sentence",
-                    tint = ClipLexColors.Green,
+                    tint = ClipLexColors.Accent,
                     modifier = Modifier.clickable(onClick = onPlay).padding(9.dp),
                 )
                 Icon(
@@ -308,7 +324,6 @@ internal fun languageName(tag: String?): String = tag
     ?.let { java.util.Locale.forLanguageTag(it).getDisplayLanguage(java.util.Locale.ENGLISH) }
     ?.takeIf(String::isNotBlank)
     ?: "Original"
-
 
 internal fun copy(context: Context, segment: TranscriptionSegment) = copyText(
     context,
