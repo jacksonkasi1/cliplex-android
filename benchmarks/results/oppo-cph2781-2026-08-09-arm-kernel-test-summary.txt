@@ -1,0 +1,24 @@
+ClipLex Arm kernel physical-device summary
+Date: 2026-08-09
+Device: OPPO CPH2781, Android 16 / API 36, arm64-v8a
+SoC: MediaTek MT6835
+CPU features: Arm64=true, NEON=true, DotProd=true, I8MM=false
+Model: ggml-tiny.en-q5_1.bin
+Model SHA-256: c77c5766f1cef09b6b7d47f21b546cbddd4157886b3b5d6d4f709e91e66c7c2b
+Fixture duration: 9400 ms
+Warm-ups: 2 per configuration
+Measured runs: 10 per configuration
+Thread counts: 2, 4, 6, 8
+Generic matrix: PASS, 48 inferences, 0 failures, thermal status 0
+KleidiAI-compiled matrix: PASS, 48 inferences, 0 failures, thermal status 0
+Selected backend: cpu
+Selected kernel path: generic-ggml
+KleidiAI compiled: true in opt-in APK
+KleidiAI available for loaded Q5_1 model: false
+Fallback reason: Q5_1 model operators are not supported by this KleidiAI integration
+Transcript hash: e4321c13fadcb49fb78e4d1e8124e900d646238e2239121da98d0ddc465451e6
+ADB install result: Success
+App launch result: process started; no immediate AndroidRuntime crash
+Connected safeDebug suite: PASS, 3 tests, 0 failures
+Final model state: verified Q5_1 restored after connected-test app-data lifecycle
+No device serial or personal information is included.
