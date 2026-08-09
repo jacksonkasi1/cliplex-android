@@ -12,11 +12,28 @@ data class WhisperModelInfo(
 	val textContextSize: Int,
 	val melBins: Int,
 	val quantizationType: Int,
+	val quantization: String,
 	val fileSizeBytes: Long = 0L,
+)
+
+data class ArmBackendDiagnostics(
+	val abi: String,
+	val arm64: Boolean,
+	val neon: Boolean,
+	val dotProd: Boolean,
+	val i8mm: Boolean,
+	val kleidiAiCompiled: Boolean,
+	val kleidiAiAvailable: Boolean,
+	val selectedBackend: String,
+	val selectedKernelPath: String,
+	val genericFallback: Boolean,
+	val fallbackReason: String,
+	val modelQuantization: String,
 )
 
 data class WhisperRuntimeInfo(
 	val systemInfo: String,
+	val backend: ArmBackendDiagnostics,
 	val model: WhisperModelInfo?,
 )
 
@@ -209,8 +226,23 @@ internal object WhisperJsonParser {
 
 	private fun parseRuntime(root: JSONObject): WhisperRuntimeInfo {
 		val modelJson = root.optJSONObject("model")
+		val backendJson = root.optJSONObject("backend") ?: JSONObject()
 		return WhisperRuntimeInfo(
 			systemInfo = root.optString("systemInfo"),
+			backend = ArmBackendDiagnostics(
+				abi = backendJson.optString("abi", "unknown"),
+				arm64 = backendJson.optBoolean("arm64"),
+				neon = backendJson.optBoolean("neon"),
+				dotProd = backendJson.optBoolean("dotProd"),
+				i8mm = backendJson.optBoolean("i8mm"),
+				kleidiAiCompiled = backendJson.optBoolean("kleidiAiCompiled"),
+				kleidiAiAvailable = backendJson.optBoolean("kleidiAiAvailable"),
+				selectedBackend = backendJson.optString("selectedBackend", "unknown"),
+				selectedKernelPath = backendJson.optString("selectedKernelPath", "unknown"),
+				genericFallback = backendJson.optBoolean("genericFallback", true),
+				fallbackReason = backendJson.optString("fallbackReason"),
+				modelQuantization = backendJson.optString("modelQuantization", "unknown"),
+			),
 			model = modelJson?.let {
 				WhisperModelInfo(
 					fileName = it.optString("fileName"),
@@ -221,6 +253,7 @@ internal object WhisperJsonParser {
 					textContextSize = it.optInt("textContextSize"),
 					melBins = it.optInt("melBins"),
 					quantizationType = it.optInt("quantizationType"),
+					quantization = it.optString("quantization", "unknown"),
 				)
 			},
 		)

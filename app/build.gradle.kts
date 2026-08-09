@@ -5,6 +5,16 @@ plugins {
     id("org.jetbrains.kotlin.kapt")
 }
 
+val cliplexKleidiAiEnabled = providers.gradleProperty("cliplexKleidiAi")
+    .map { rawValue ->
+        require(rawValue.equals("true", ignoreCase = true) || rawValue.equals("false", ignoreCase = true)) {
+            "cliplexKleidiAi must be true or false"
+        }
+        rawValue.toBoolean()
+    }
+    .orElse(false)
+    .get()
+
 android {
     namespace = "com.jacksonkasi.cliplex"
     compileSdk = 36
@@ -30,7 +40,7 @@ android {
                     "-DWHISPER_BUILD_EXAMPLES=OFF",
                     "-DWHISPER_BUILD_SERVER=OFF",
                     "-DGGML_NATIVE=OFF",
-                    "-DGGML_CPU_KLEIDIAI=OFF",
+                    "-DCLIPLEX_ENABLE_KLEIDIAI=${if (cliplexKleidiAiEnabled) "ON" else "OFF"}",
                 )
             }
         }

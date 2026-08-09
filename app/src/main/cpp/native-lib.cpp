@@ -15,7 +15,16 @@
 
 #include <android/log.h>
 
+#if defined(__linux__) && defined(__aarch64__)
+#include <asm/hwcap.h>
+#include <sys/auxv.h>
+#endif
+
 #include "whisper.h"
+
+#ifndef CLIPLEX_KLEIDIAI_COMPILED
+#define CLIPLEX_KLEIDIAI_COMPILED 0
+#endif
 
 #define LOG_TAG "ClipLexNative"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -30,6 +39,21 @@ whisper_context *g_context = nullptr;
 std::string g_model_path;
 double g_last_model_load_ms = 0.0;
 long long g_inference_count = 0;
+
+struct ArmBackendDiagnostics {
+    std::string abi;
+    bool arm64 = false;
+    bool neon = false;
+    bool dotprod = false;
+    bool i8mm = false;
+    bool kleidiai_compiled = CLIPLEX_KLEIDIAI_COMPILED != 0;
+    bool kleidiai_available = false;
+    std::string selected_backend = "cpu";
+    std::string selected_kernel_path = "generic-ggml";
+    bool generic_fallback = true;
+    std::string fallback_reason;
+    std::string model_quantization = "unknown";
+};
 
 struct ModelLoadOutcome {
     bool success = false;
@@ -245,6 +269,90 @@ std::string file_name_from_path(const std::string &path) {
     return separator == std::string::npos ? path : path.substr(separator + 1);
 }
 
+std::string model_quantization_from_path(const std::string &path) {
+    std::string file_name = file_name_from_path(path);
+    std::transform(file_name.begin(), file_name.end(), file_name.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    for (const char *quantization : {"q8_0", "q5_1", "q5_0", "q4_1", "q4_0"}) {
+        if (file_name.find(quantization) != std::string::npos) {
+            std::string result(quantization);
+            std::transform(result.begin(), result.end(), result.begin(), [](unsigned char c) {
+                return static_cast<char>(std::toupper(c));
+            });
+            return result;
+        }
+    }
+    return "unknown";
+}
+
+ArmBackendDiagnostics current_arm_backend_diagnostics() {
+    ArmBackendDiagnostics diagnostics;
+#if defined(__aarch64__)
+    diagnostics.abi = "arm64-v8a";
+    diagnostics.arm64 = true;
+#elif defined(__arm__)
+    diagnostics.abi = "armeabi-v7a";
+#else
+    diagnostics.abi = "unknown";
+#endif
+
+#if defined(__linux__) && defined(__aarch64__)
+    const unsigned long hwcap = getauxval(AT_HWCAP);
+    const unsigned long hwcap2 = getauxval(AT_HWCAP2);
+#if defined(HWCAP_ASIMD)
+    diagnostics.neon = (hwcap & HWCAP_ASIMD) != 0;
+#endif
+#if defined(HWCAP_ASIMDDP)
+    diagnostics.dotprod = (hwcap & HWCAP_ASIMDDP) != 0;
+#endif
+#if defined(HWCAP2_I8MM)
+    diagnostics.i8mm = (hwcap2 & HWCAP2_I8MM) != 0;
+#else
+    (void) hwcap2;
+#endif
+#endif
+
+    diagnostics.model_quantization = model_quantization_from_path(g_model_path);
+    diagnostics.kleidiai_available = diagnostics.kleidiai_compiled && diagnostics.arm64 &&
+                                     diagnostics.neon && diagnostics.dotprod &&
+                                     diagnostics.model_quantization == "Q4_0";
+
+    // whisper.cpp v1.7.6 exposes the selected CPU backend but not the individual
+    // per-operation micro-kernel. Q5_1 is not handled by this version's KleidiAI
+    // extra buffer, so generic ggml is provable for ClipLex's production model.
+    if (!diagnostics.kleidiai_compiled) {
+        diagnostics.fallback_reason = "KleidiAI was not compiled into this APK";
+    } else if (g_context == nullptr) {
+        diagnostics.fallback_reason = "No Whisper model is loaded";
+    } else if (diagnostics.model_quantization != "Q4_0") {
+        diagnostics.fallback_reason = diagnostics.model_quantization +
+                                      " model operators are not supported by this KleidiAI integration";
+    } else if (!diagnostics.dotprod) {
+        diagnostics.fallback_reason = "Arm dot-product capability is unavailable";
+    } else {
+        diagnostics.selected_kernel_path = "runtime-dispatch-unobserved";
+        diagnostics.fallback_reason =
+                "ggml does not expose per-operation kernel selection; no KleidiAI kernel is claimed";
+    }
+    return diagnostics;
+}
+
+void log_arm_backend_diagnostics(const ArmBackendDiagnostics &diagnostics) {
+    LOGI("ClipLex CPU ABI: %s", diagnostics.abi.c_str());
+    LOGI("ClipLex Arm64: %s", diagnostics.arm64 ? "true" : "false");
+    LOGI("ClipLex NEON/ASIMD supported: %s", diagnostics.neon ? "true" : "false");
+    LOGI("ClipLex DotProd supported: %s", diagnostics.dotprod ? "true" : "false");
+    LOGI("ClipLex I8MM supported: %s", diagnostics.i8mm ? "true" : "false");
+    LOGI("ClipLex KleidiAI compiled: %s", diagnostics.kleidiai_compiled ? "true" : "false");
+    LOGI("ClipLex KleidiAI available: %s", diagnostics.kleidiai_available ? "true" : "false");
+    LOGI("ClipLex selected backend: %s", diagnostics.selected_backend.c_str());
+    LOGI("ClipLex selected kernel path: %s", diagnostics.selected_kernel_path.c_str());
+    LOGI("ClipLex generic fallback: %s", diagnostics.generic_fallback ? "true" : "false");
+    LOGI("ClipLex fallback reason: %s", diagnostics.fallback_reason.c_str());
+    LOGI("ClipLex model quantization: %s", diagnostics.model_quantization.c_str());
+}
+
 std::string normalized_language(std::string language) {
     language.erase(language.begin(), std::find_if(language.begin(), language.end(), [](unsigned char c) {
         return !std::isspace(c);
@@ -347,11 +455,33 @@ void append_model_info_json(std::ostringstream &json) {
          << ",\"textContextSize\":" << whisper_model_n_text_ctx(g_context)
          << ",\"melBins\":" << whisper_model_n_mels(g_context)
          << ",\"quantizationType\":" << whisper_model_ftype(g_context)
+         << ",\"quantization\":\"" << json_escape(model_quantization_from_path(g_model_path))
+         << "\""
          << '}';
 }
 
+void append_backend_diagnostics_json(std::ostringstream &json) {
+    const ArmBackendDiagnostics diagnostics = current_arm_backend_diagnostics();
+    json << "{\"abi\":\"" << json_escape(diagnostics.abi)
+         << "\",\"arm64\":" << (diagnostics.arm64 ? "true" : "false")
+         << ",\"neon\":" << (diagnostics.neon ? "true" : "false")
+         << ",\"dotProd\":" << (diagnostics.dotprod ? "true" : "false")
+         << ",\"i8mm\":" << (diagnostics.i8mm ? "true" : "false")
+         << ",\"kleidiAiCompiled\":" << (diagnostics.kleidiai_compiled ? "true" : "false")
+         << ",\"kleidiAiAvailable\":" << (diagnostics.kleidiai_available ? "true" : "false")
+         << ",\"selectedBackend\":\"" << json_escape(diagnostics.selected_backend)
+         << "\",\"selectedKernelPath\":\"" << json_escape(diagnostics.selected_kernel_path)
+         << "\",\"genericFallback\":" << (diagnostics.generic_fallback ? "true" : "false")
+         << ",\"fallbackReason\":\"" << json_escape(diagnostics.fallback_reason)
+         << "\",\"modelQuantization\":\"" << json_escape(diagnostics.model_quantization)
+         << "\"}";
+}
+
 void append_runtime_info_json(std::ostringstream &json) {
-    json << "\"systemInfo\":\"" << json_escape(whisper_print_system_info()) << "\",\"model\":";
+    json << "\"systemInfo\":\"" << json_escape(whisper_print_system_info())
+         << "\",\"backend\":";
+    append_backend_diagnostics_json(json);
+    json << ",\"model\":";
     append_model_info_json(json);
 }
 
@@ -386,6 +516,7 @@ ModelLoadOutcome ensure_model_locked(const std::string &model_path) {
     g_last_model_load_ms = outcome.native_load_ms;
     g_inference_count = 0;
     outcome.success = true;
+    log_arm_backend_diagnostics(current_arm_backend_diagnostics());
     LOGI("Whisper model loaded file=%s type=%s loadMs=%.2f system=%s",
          file_name_from_path(g_model_path).c_str(), whisper_model_type_readable(g_context),
          outcome.native_load_ms, whisper_print_system_info());
@@ -512,12 +643,15 @@ NativeTranscriptionOutcome run_transcription(
         params.new_segment_callback_user_data = &segment_callback;
     }
 
-    LOGI("Whisper transcription started samples=%d durationMs=%lld language=%s threads=%d fast=%s warm=%s model=%s multilingual=%s translate=%s detectLanguage=%s",
+    const ArmBackendDiagnostics backend_diagnostics = current_arm_backend_diagnostics();
+    LOGI("Whisper transcription started samples=%d durationMs=%lld language=%s threads=%d fast=%s warm=%s model=%s multilingual=%s translate=%s detectLanguage=%s backend=%s kernelPath=%s",
          outcome.sample_count, outcome.audio_duration_ms, params.language, outcome.thread_count,
          outcome.fast_mode_applied ? "true" : "false", outcome.model_was_warm ? "true" : "false",
          outcome.loaded_model_file.c_str(), outcome.model_is_multilingual ? "true" : "false",
          outcome.translation_enabled ? "true" : "false",
-         outcome.detect_language_enabled ? "true" : "false");
+         outcome.detect_language_enabled ? "true" : "false",
+         backend_diagnostics.selected_backend.c_str(),
+         backend_diagnostics.selected_kernel_path.c_str());
     whisper_reset_timings(g_context);
     const auto inference_started = Clock::now();
     const int result = whisper_full(g_context, params, pcm.data(), static_cast<int>(pcm.size()));
