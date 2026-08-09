@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!--
+      AndroidSpeechRecognizerEngine gates Android 13/14 speech APIs with explicit SDK checks,
+      and SpeechRecognitionCoordinator invokes transcribe only after isAvailable() succeeds.
+      Android Lint loses those guarantees across suspend/withLock boundaries and also reports the
+      RecognitionPart constants even though they are read only inside the Android 14 branch.
+    -->
+    <issue id="NewApi">
+        <ignore path="src/main/java/com/jacksonkasi/cliplex/speech/AndroidSpeechRecognizerEngine.kt" />
+    </issue>
+</lint>
