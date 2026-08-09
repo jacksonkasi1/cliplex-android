@@ -69,8 +69,9 @@ class CaptureService : Service() {
 		const val SAMPLE_RATE_HZ = 16_000
 		const val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO
 		const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
-		const val MAX_CAPTURE_DURATION_SECONDS = 180
-		private const val MAX_CAPTURE_SAMPLES = SAMPLE_RATE_HZ * MAX_CAPTURE_DURATION_SECONDS
+		const val MAX_CAPTURE_SECONDS = 180
+		private const val MAX_CAPTURE_SAMPLES =
+			SAMPLE_RATE_HZ * MAX_CAPTURE_SECONDS
 
 		private val _captureState = MutableStateFlow<CaptureState>(CaptureState.Idle)
 		val captureState: StateFlow<CaptureState> = _captureState.asStateFlow()
