@@ -133,6 +133,12 @@ class AndroidSpeechRecognizerEngine(
 
 	override suspend fun transcribe(audio: AudioInput, language: LearningLanguage): TranscriptionResult =
 		operationMutex.withLock {
+			if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+				throw SpeechEngineException(
+					SpeechFallbackReason.API_LEVEL_UNSUPPORTED,
+					"Android on-device recognition requires Android 13 or newer",
+				)
+			}
 			val availability = isAvailableWithoutMutex(language)
 			if (!availability.available) {
 				throw SpeechEngineException(
@@ -394,6 +400,7 @@ class AndroidSpeechRecognizerEngine(
 		}
 	}
 
+	@RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
 	private fun confidence(level: Int): Float? = when (level) {
 		RecognitionPart.CONFIDENCE_LEVEL_LOW -> .2f
 		RecognitionPart.CONFIDENCE_LEVEL_MEDIUM_LOW -> .4f
@@ -408,6 +415,7 @@ class AndroidSpeechRecognizerEngine(
 		val installedTag: String? = null,
 	)
 
+	@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 	private fun RecognitionSupport.resolveLanguage(requestedTag: String): ResolvedLanguage {
 		val requested = Locale.forLanguageTag(requestedTag)
 		fun List<String>.match(): String? = firstOrNull { it.equals(requestedTag, ignoreCase = true) }
@@ -424,6 +432,7 @@ class AndroidSpeechRecognizerEngine(
 		}
 	}
 
+	@RequiresApi(Build.VERSION_CODES.S)
 	private fun Int.toSpeechException(): SpeechEngineException = when (this) {
 		SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED,
 		SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE -> SpeechEngineException(
