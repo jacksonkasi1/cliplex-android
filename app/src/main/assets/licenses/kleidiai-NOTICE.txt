@@ -1,0 +1,9 @@
+Arm KleidiAI v1.9.0
+Source: https://github.com/ARM-software/kleidiai/tree/v1.9.0
+
+Copyright 2024-2025 Arm Limited and/or its affiliates.
+
+KleidiAI v1.9.0 identifies its integration and microkernel sources as
+Apache-2.0 and includes some BSD-3-Clause material. The complete license texts
+are packaged alongside this notice as kleidiai-Apache-2.0.txt and
+kleidiai-BSD-3-Clause.txt.

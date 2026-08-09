@@ -12,6 +12,15 @@ used by the project.
   are included through or sourced from the pinned
   `native/whisper.cpp` Git submodule. Their copyright and MIT license are in
   [`native/whisper.cpp/LICENSE`](native/whisper.cpp/LICENSE).
+- The experimental build downloads and statically incorporates
+  [Arm KleidiAI v1.9.0](https://github.com/ARM-software/kleidiai/tree/v1.9.0).
+  Copyright 2024-2025 Arm Limited and/or its affiliates. The pinned source uses
+  Apache License 2.0 for the integration and microkernel sources and also
+  contains BSD-3-Clause material; it is not MIT-licensed. The attribution and
+  complete license texts are packaged in every APK under `assets/licenses/`:
+  [`kleidiai-NOTICE.txt`](app/src/main/assets/licenses/kleidiai-NOTICE.txt),
+  [`kleidiai-Apache-2.0.txt`](app/src/main/assets/licenses/kleidiai-Apache-2.0.txt),
+  and [`kleidiai-BSD-3-Clause.txt`](app/src/main/assets/licenses/kleidiai-BSD-3-Clause.txt).
 - Whisper model files are downloaded separately from the
   [`whisper.cpp` model repository](https://huggingface.co/ggerganov/whisper.cpp).
   Model files are not covered by the ClipLex MIT license; review the model

@@ -27,6 +27,9 @@ android {
         versionCode = 2
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("boolean", "KLEIDIAI_INTEGRATION_ENABLED", cliplexKleidiAiEnabled.toString())
+        buildConfigField("String", "WHISPER_COMMIT", "\"a8d002cfd879315632a579e73f0148d06959de36\"")
+        buildConfigField("String", "KLEIDIAI_VERSION", "\"v1.9.0\"")
         vectorDrawables.useSupportLibrary = true
         ndk.abiFilters += "arm64-v8a"
 

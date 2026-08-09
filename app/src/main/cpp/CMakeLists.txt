@@ -4,7 +4,7 @@ project(cliplex LANGUAGES C CXX)
 set(WHISPER_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../native/whisper.cpp")
 option(
     CLIPLEX_ENABLE_KLEIDIAI
-    "Enable Arm KleidiAI kernels for compatible ggml operations"
+    "Enable the experimental Arm KleidiAI integration"
     OFF
 )
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
@@ -34,6 +34,25 @@ endif()
 
 add_subdirectory("${WHISPER_ROOT}" "${CMAKE_BINARY_DIR}/whisper")
 
+# This only proves that the pinned ggml KleidiAI integration sources were added
+# to ggml-cpu. It deliberately does not claim that an ISA-specific compute
+# microkernel was compiled or selected at runtime.
+set(CLIPLEX_KLEIDIAI_SOURCES_INCLUDED OFF)
+if (CLIPLEX_ENABLE_KLEIDIAI)
+    if (NOT TARGET ggml-cpu)
+        message(FATAL_ERROR "KleidiAI integration was enabled but ggml-cpu is unavailable")
+    endif()
+    get_target_property(CLIPLEX_GGML_CPU_SOURCES ggml-cpu SOURCES)
+    string(JOIN ";" CLIPLEX_GGML_CPU_SOURCES_TEXT ${CLIPLEX_GGML_CPU_SOURCES})
+    string(FIND "${CLIPLEX_GGML_CPU_SOURCES_TEXT}" "ggml-cpu/kleidiai/kleidiai.cpp" CLIPLEX_KLEIDIAI_WRAPPER_INDEX)
+    string(FIND "${CLIPLEX_GGML_CPU_SOURCES_TEXT}" "ggml-cpu/kleidiai/kernels.cpp" CLIPLEX_KLEIDIAI_REGISTRY_INDEX)
+    if (CLIPLEX_KLEIDIAI_WRAPPER_INDEX EQUAL -1 OR CLIPLEX_KLEIDIAI_REGISTRY_INDEX EQUAL -1)
+        message(FATAL_ERROR "KleidiAI integration was enabled but its ggml integration sources were not included")
+    endif()
+    set(CLIPLEX_KLEIDIAI_SOURCES_INCLUDED ON)
+    message(STATUS "ClipLex KleidiAI experiment: integration sources included; kernel selection remains unobserved")
+endif()
+
 # Android Studio/Gradle configures native debug variants with -O0 by default. That
 # makes whisper.cpp several times slower and obscures real device diagnostics.
 # Keep symbols/assertions, but optimize the compute-heavy static targets. Avoid
@@ -57,7 +76,8 @@ target_include_directories(cliplex-native PRIVATE
     "${WHISPER_ROOT}/include"
 )
 target_compile_definitions(cliplex-native PRIVATE
-    CLIPLEX_KLEIDIAI_COMPILED=$<BOOL:${CLIPLEX_ENABLE_KLEIDIAI}>
+    CLIPLEX_KLEIDIAI_INTEGRATION_ENABLED=$<BOOL:${CLIPLEX_ENABLE_KLEIDIAI}>
+    CLIPLEX_KLEIDIAI_SOURCES_INCLUDED=$<BOOL:${CLIPLEX_KLEIDIAI_SOURCES_INCLUDED}>
 )
 target_compile_options(cliplex-native PRIVATE
     -fvisibility=hidden
