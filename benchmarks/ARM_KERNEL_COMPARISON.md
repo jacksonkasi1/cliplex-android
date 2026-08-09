@@ -1,116 +1,127 @@
-# Arm kernel comparison
+# Arm capability and experimental integration comparison
 
-## Build and device
+## Scope and claim
+
+This evidence compares the production-default generic build with an opt-in KleidiAI integration
+experiment. It does **not** claim that the current Q5_1 production model uses a KleidiAI
+microkernel. Both device runs selected the observable `generic-ggml` compute path.
+
+## Reproducibility identity
 
 | Item | Value |
 |---|---|
+| Source commit used to build both APKs | `04135227079df550d0652c4d12786a66ab491bef` |
 | Baseline commit | `6a2df0eceecc41b0a11058eb786eb4dcd8b91157` |
-| Integration commit | `d3fc125` |
-| Benchmark commit | `81d812b` |
+| whisper.cpp commit / tag | `a8d002cfd879315632a579e73f0148d06959de36` / v1.7.6 |
+| Pinned KleidiAI version | v1.9.0 |
 | Device | OPPO CPH2781 |
-| SoC | MediaTek MT6835 |
-| Android | 16 (API 36) |
-| ABI | `arm64-v8a` |
+| SoC / OS / ABI | MediaTek MT6835 / Android 16 (API 36) / `arm64-v8a` |
 | Runtime CPU features | Arm64=true, NEON=true, DotProd=true, I8MM=false |
-| Model | `ggml-tiny.en-q5_1.bin` (Q5_1) |
+| Model | `ggml-tiny.en-q5_1.bin` (metadata ftype `Q5_1`) |
 | Model SHA-256 | `c77c5766f1cef09b6b7d47f21b546cbddd4157886b3b5d6d4f709e91e66c7c2b` |
 | Fixture | `jfk-first-9.4s-16khz-mono.wav`, 9.4 s, 16 kHz mono |
 | Fixture PCM SHA-256 | `f2871e112ba83f00d1b5b21d4147decbf40990d9b43618309c42cf8577caa3bd` |
 
-No ADB serial, account data, or other personal identifier is stored in the report or CSV.
+No ADB serial, account data, or personal identifier is stored in the evidence.
 
 ## APK evidence
 
-| Build | Filename | Bytes | SHA-256 |
+| Configuration | Local filename | Bytes | SHA-256 |
 |---|---|---:|---|
-| Unmodified baseline safeDebug | `app-safe-debug.apk` | 74,157,546 | `5931ab7f14c0223891afc555b06b2c79ca1253921fd998c2eab47181e8bfde13` |
-| Branch generic safeDebug | `app-safe-debug.apk` | 74,166,842 | `e93cbe123129e3f34768ec902e027bbd6c156b8cdf74fb165ab519c173cf7c91` |
-| Branch KleidiAI-compiled safeDebug | `cliplex-safe-debug-kleidiai.apk` | 74,173,858 | `93631b88ce23345855055b88f789a94f34ab8e6073cd9aa208b33f349553438f` |
+| Generic safeDebug (production default) | `cliplex-generic-safe-debug.apk` | 74,172,451 | `45049ce7986f206a40dcc544c865a245b5708629c317c9b116c347672833be24` |
+| KleidiAI experimental safeDebug | `cliplex-kleidiai-experimental-safe-debug.apk` | 74,804,464 | `ab6a78d2b17208b3755536d9a4ca88441f938e33bf22e782ff1390d509440b0d` |
 
-All three are debug-signed installable APKs. They are not release-signed, and no APK is committed.
+Both APKs are debug-signed, installed with ADB, cold-launched successfully, and contain the packaged
+KleidiAI attribution and license assets. No APK is committed.
 
 ## Method
 
-- Same physical device, verified model, and fixed fixture for every run.
-- Full Whisper audio context (`audio_ctx=0`) so this is not a short-context speedup comparison.
-- Branch matrices: two warm-ups followed by ten measured runs for each of 2, 4, 6, and 8 threads.
-- Median uses the midpoint of the two central sorted samples. p95 uses nearest rank.
-- Native inference, native total, Kotlin end-to-end time, transcript hash, failures, thermal status,
-  backend, and CPU features were recorded for every run.
-- The unchanged main benchmark only supported five measured runs per configuration. Its available
-  six-thread full-context baseline is reported separately and is not presented as a 10-run matrix.
+- Same physical device, verified model, and fixed fixture for both configurations.
+- Full Whisper audio context (`audio_ctx=0`).
+- Two warm-ups followed by ten measured runs at 2, 4, 6, and 8 threads.
+- Median is the midpoint of the central samples; p95 is nearest rank.
+- Every row was flushed during execution and copied from internal to external app storage in
+  `finally`, before final assertions.
+- Every measured transcript was checked against the fixed canonical transcript and for consistency
+  across all thread counts. The generator repeats the gate across both configuration exports.
+- Both repository-wide connected safeDebug suites ran three tests with zero failures.
 
-## Unmodified main baseline
+## Derived measured comparison
 
-At six threads, full audio context, generic ggml: median 2,330.257 ms; p95 2,438.960 ms; minimum
-2,320.037 ms; maximum 2,438.960 ms; failures 0; thermal status 0.
+| Configuration | Threads | Median (ms) | p95 (ms) | Min (ms) | Max (ms) | Failures | Thermal max |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Generic | 2 | 3,695.338 | 3,836.510 | 3,692.438 | 3,836.510 | 0 | 0 |
+| Generic | 4 | 2,885.838 | 3,018.553 | 2,865.173 | 3,018.553 | 0 | 0 |
+| Generic | 6 | 2,332.137 | 3,224.802 | 2,318.495 | 3,224.802 | 0 | 0 |
+| Generic | 8 | 2,145.029 | 2,458.276 | 2,043.860 | 2,458.276 | 0 | 0 |
+| KleidiAI experimental | 2 | 3,716.336 | 3,942.426 | 3,690.577 | 3,942.426 | 0 | 0 |
+| KleidiAI experimental | 4 | 2,888.372 | 3,120.597 | 2,874.307 | 3,120.597 | 0 | 0 |
+| KleidiAI experimental | 6 | 2,361.392 | 2,409.848 | 2,332.298 | 2,409.848 | 0 | 0 |
+| KleidiAI experimental | 8 | 2,125.053 | 2,304.703 | 2,076.754 | 2,304.703 | 0 | 0 |
 
-Main's separate 512-frame short-context path measured 735.575 ms median and 800.209 ms p95. That
-result changes audio context and is not counted as a kernel speedup.
+Timing differences are run-to-run variance on the same observable generic compute path. They are not
+presented as a KleidiAI speedup. Six threads remains the production default because this is one
+device/input and tail latency varied materially.
 
-## Branch thread matrix
+## Truthful runtime evidence
 
-| Configuration | Threads | Backend / path | Median inference (ms) | p95 (ms) | Min (ms) | Max (ms) | Failures |
-|---|---:|---|---:|---:|---:|---:|---:|
-| Generic | 2 | CPU / generic-ggml | 3,718.650 | 3,813.107 | 3,695.218 | 3,813.107 | 0 |
-| Generic | 4 | CPU / generic-ggml | 2,885.302 | 2,944.928 | 2,873.080 | 2,944.928 | 0 |
-| Generic | 6 | CPU / generic-ggml | 2,339.591 | 2,352.584 | 2,329.691 | 2,352.584 | 0 |
-| Generic | 8 | CPU / generic-ggml | 2,039.019 | 2,159.958 | 2,026.234 | 2,159.958 | 0 |
-| KleidiAI compiled | 2 | CPU / generic-ggml | 3,698.348 | 3,766.179 | 3,692.495 | 3,766.179 | 0 |
-| KleidiAI compiled | 4 | CPU / generic-ggml | 2,883.754 | 3,031.722 | 2,874.691 | 3,031.722 | 0 |
-| KleidiAI compiled | 6 | CPU / generic-ggml | 2,357.556 | 2,367.711 | 2,344.626 | 2,367.711 | 0 |
-| KleidiAI compiled | 8 | CPU / generic-ggml | 2,118.392 | 2,563.975 | 2,065.461 | 2,563.975 | 0 |
-
-At the existing six-thread default, compiling KleidiAI changed median by +0.77% and p95 by +0.64%.
-Because runtime selected the same generic path, this is run-to-run variance rather than a kernel
-speedup. Eight threads reduced median versus six in both builds, but the compiled matrix's p95 was
-8.29% worse than its six-thread p95. Six remains the production default.
-
-## Runtime backend evidence
-
-The opt-in APK reported:
+The experimental Q5_1 run recorded the following on every row:
 
 ```text
-ClipLex CPU ABI: arm64-v8a
-ClipLex KleidiAI compiled: true
-ClipLex DotProd supported: true
-ClipLex I8MM supported: false
-ClipLex selected backend: cpu
-ClipLex selected kernel path: generic-ggml
-ClipLex generic fallback: true
-ClipLex fallback reason: Q5_1 model operators are not supported by this KleidiAI integration
+kleidiaiIntegrationEnabled=true
+kleidiaiSourcesIncluded=true
+kleidiaiKernelSelectionObserved=false
+modelEligibleForKleidiAi=false
+selectedComputePath=generic-ggml
+fallbackReason=Q5_1 is not supported by the pinned KleidiAI integration
 ```
 
-KleidiAI was therefore not selected, and no KleidiAI micro-kernel speedup is claimed.
+`kleidiaiSourcesIncluded` is backed by a CMake check that the pinned ggml integration wrapper and
+registry sources are present in the `ggml-cpu` target. It does not mean that an ISA-specific compute
+microkernel was compiled or selected. CPU HWCAP values are diagnostics only and never prove kernel
+selection. Model quantization comes from loaded-model metadata via `whisper_model_ftype()`, not the
+filename.
 
 ## Correctness
 
-Every measured run produced the same normalized transcript and transcript hash
-`e4321c13fadcb49fb78e4d1e8124e900d646238e2239121da98d0ddc465451e6`:
+All 80 measured runs matched this canonical normalized transcript:
 
-> And so my fellow Americans ask not what your country can do for you ask what you can do
+```text
+and so my fellow americans ask not what your country can do for you ask what you can do
+```
 
-Thermal status remained 0, both 48-inference matrices completed without failure, the APK installed
-with `adb install -r -t`, and the app launched without an immediate AndroidRuntime crash. Capture and
-media-projection behavior remains covered by existing automated tests; no OS kernel, governor,
-bootloader, ROM, model verification, language, or UI-flow behavior was changed.
+Normalized transcript SHA-256:
+`9fa91294a98ddc0b0d60009df41a2a1d5dbc9ccd83b8b9e9859fa278c9e318c3`.
 
-The repository-wide connected safeDebug suite then ran three tests on the same phone with zero
-failures, including injected-audio speech diagnostics. Its install lifecycle cleared debug app data;
-the verified Q5_1 model was restored afterward and its 32,166,155-byte size was confirmed in app
-storage.
+## Evidence chain
 
-## Raw data
+Untouched device outputs:
 
-Machine-readable measured timings are in
-[`results/oppo-cph2781-2026-08-09-arm-kernel.csv`](results/oppo-cph2781-2026-08-09-arm-kernel.csv).
-The test writes the full warm-up and measured CSV to app-specific external benchmark storage for ADB
-collection.
+- [`raw/oppo-cph2781-20260809-175842Z-0413522-generic-q5_1-45049ce7.csv`](raw/oppo-cph2781-20260809-175842Z-0413522-generic-q5_1-45049ce7.csv)
+  — SHA-256 `10aaeab9091c7dc056dbbbb002487c373417164e81d43a169fad8b2c9d506698`
+- [`raw/oppo-cph2781-20260809-180301Z-0413522-kleidiai-experimental-q5_1-ab6a78d2.csv`](raw/oppo-cph2781-20260809-180301Z-0413522-kleidiai-experimental-q5_1-ab6a78d2.csv)
+  — SHA-256 `364695fe6d28158e3561e71539744e5d614da06daafd97eb37c2c3244886b7e8`
+
+Deterministic derived output:
+
+- [`derived/oppo-cph2781-20260809-0413522-comparison.csv`](derived/oppo-cph2781-20260809-0413522-comparison.csv)
+  — SHA-256 `d28db35862eeceefa7a12eb4bd2ed30b11f21d1dee04e80c1b7f4ffc41c5f25c`
+
+Regenerate it without modifying the raw exports:
+
+```text
+python scripts/generate-arm-kernel-comparison.py \
+  --generic benchmarks/raw/oppo-cph2781-20260809-175842Z-0413522-generic-q5_1-45049ce7.csv \
+  --experimental benchmarks/raw/oppo-cph2781-20260809-180301Z-0413522-kleidiai-experimental-q5_1-ab6a78d2.csv \
+  --output benchmarks/derived/oppo-cph2781-20260809-0413522-comparison.csv
+```
+
+This provides an auditable chain from source commit → APK hash → device run → untouched raw CSV →
+derived comparison.
 
 ## Limitations
 
-- The pinned model source did not contain a verifiable tiny English Q4_0 asset, so the requested Q4_0
-  matrix was not fabricated.
-- whisper.cpp does not expose per-operation kernel names through its public API.
-- A custom Q5_1 SDOT/assembly micro-kernel is intentionally deferred until profiling proves it is
-  required.
+- The verified production model is Q5_1 and is not eligible for the pinned integration.
+- Pinned whisper.cpp does not expose per-operation KleidiAI kernel selection through its public API.
+- No global `-march`, `-mcpu`, DotProd, I8MM, SME, or device-specific ISA flag was added by ClipLex.
+- A real baseline-plus-specialized dispatch target and custom Q5_1 microkernel remain out of scope.
