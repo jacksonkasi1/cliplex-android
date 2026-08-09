@@ -21,6 +21,12 @@ ClipLex v1.0.0 is the submission-ready ARM64 Android build for the Arm AI Optimi
 - Compact safe flavor with no overlay permission and no bundled LiteRT-LM runtime.
 - Speech and translation model files are downloaded separately after installation.
 
+## Runtime compatibility
+
+- Android on-device speech APIs are called only on Android 13 or newer.
+- Supported older Android versions safely use the Whisper fallback instead of invoking unavailable platform APIs.
+- The three-minute capture ceiling is defined once as `MAX_CAPTURE_SECONDS = 180` and covered by a unit test.
+
 ## Verified optimization result
 
 A controlled 9.4-second Whisper test on the OPPO CPH2781 reduced median native inference from 2,393.764 ms to 692.659 ms, a 3.456x speedup and 71.06% latency reduction, while preserving normalized transcript content.
