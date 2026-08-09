@@ -12,6 +12,8 @@ import com.jacksonkasi.cliplex.domain.model.ModelType
 import java.io.File
 import java.security.MessageDigest
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 import java.util.Locale
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -20,13 +22,14 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Controlled physical-device benchmark. The model must be provisioned in the debug app's
- * whisper_models directory before this test runs. Every native observation is flushed to CSV.
+ * Controlled physical-device benchmark. The verified production Q5_1 model must be provisioned
+ * in the debug app's whisper_models directory before this test runs. The matrix deliberately keeps
+ * audio context and model fixed so thread/backend results remain comparable.
  */
 @RunWith(AndroidJUnit4::class)
 class WhisperArm64BenchmarkTest {
 	@Test
-	fun baselineVersusShortEnglishContextWritesRawCsv() = runBlocking {
+	fun threadMatrixWritesArmBackendCsv(): Unit = runBlocking {
 		val context = ApplicationProvider.getApplicationContext<Context>()
 		val model = ModelType.TINY_EN_Q5_1
 		val modelFile = File(context.getDir("whisper_models", Context.MODE_PRIVATE), model.fileName)
@@ -37,7 +40,7 @@ class WhisperArm64BenchmarkTest {
 		assertEquals(model.sha256, sha256(modelFile))
 
 		val assetBytes = InstrumentationRegistry.getInstrumentation().targetContext.assets
-			.open("jfk-first-9.4s-16khz-mono.wav").use { it.readBytes() }
+			.open(INPUT_ASSET_NAME).use { it.readBytes() }
 		val wav = Pcm16.readWav(assetBytes)
 		val mono = if (wav.channels == 2) Pcm16.stereoToMono(wav.samples) else wav.samples
 		val resampled = Pcm16.resampleLinear(mono, wav.sampleRate, WhisperEngine.SAMPLE_RATE_HZ)
@@ -45,70 +48,108 @@ class WhisperArm64BenchmarkTest {
 		assertEquals(9_400L, samples.size * 1_000L / WhisperEngine.SAMPLE_RATE_HZ)
 
 		val outputDirectory = File(context.filesDir, "benchmarks").apply { mkdirs() }
-		val output = File(outputDirectory, "whisper-arm64-raw.csv")
-		val commit = InstrumentationRegistry.getArguments()
-			.getString("cliplexBenchmarkCommit", "unknown")
+		val deviceName = "${Build.MANUFACTURER}-${Build.MODEL}"
+			.lowercase(Locale.US).replace(Regex("[^a-z0-9]+"), "-").trim('-')
+		val output = File(
+			outputDirectory,
+			"$deviceName-${LocalDate.now(ZoneOffset.UTC)}-arm-kernel.csv",
+		)
+		val arguments = InstrumentationRegistry.getArguments()
+		val commit = arguments.getString("cliplexBenchmarkCommit", "unknown")
+		val configurationArgument = arguments.getString("cliplexBenchmarkConfiguration", "")
 		val powerManager = context.getSystemService(PowerManager::class.java)
 		val engine = WhisperEngine()
 		var referenceTranscript: String? = null
+		var failures = 0
 
 		output.bufferedWriter().use { writer ->
 			writer.appendLine(
-				"timestamp_utc,commit,app_version,manufacturer,device_model,device,soC,android_version," +
-					"sdk,abi,input,input_sha256,input_duration_ms,input_samples,sample_rate_hz," +
-					"model,model_sha256,configuration,phase,run_index,threads,audio_ctx," +
-					"fast_mode_applied,model_warm,thermal_status,inference_ms,native_total_ms," +
-					"kotlin_total_ms,transcript_sha256,transcript",
+				"timestamp_utc,commit,app_version,manufacturer,device_model,soc,android_version,sdk," +
+					"abi,input,input_sha256,input_duration_ms,input_samples,sample_rate_hz,model," +
+					"model_sha256,model_quantization,configuration,phase,run_index,threads,audio_ctx," +
+					"thermal_status,cpu_arm64,cpu_neon,cpu_dotprod,cpu_i8mm,kleidiai_compiled," +
+					"kleidiai_available,selected_backend,selected_kernel_path,generic_fallback," +
+					"fallback_reason,success,inference_ms,native_total_ms,kotlin_total_ms," +
+					"transcript_sha256,transcript,error",
 			)
 
-			suspend fun execute(configuration: String, optimized: Boolean, phase: String, run: Int) {
+			suspend fun execute(threads: Int, phase: String, run: Int) {
 				val result = engine.ensureModelAndTranscribe(
 					modelPath = modelFile.absolutePath,
 					samples = samples,
 					options = WhisperTranscriptionOptions(
 						language = "en",
-						nThreads = WhisperEngine.DEFAULT_N_THREADS,
-						shortEnglishFastMode = optimized,
+						nThreads = threads,
+						shortEnglishFastMode = false,
 					),
-				).getOrThrow()
-				val diagnostics = result.diagnostics
-				val transcript = result.segments.joinToString(" ") { it.text }.trim()
-				assertTrue("Empty transcript for $configuration $phase $run", transcript.isNotBlank())
+				)
+				val transcription = result.getOrNull()
+				if (transcription == null) {
+					failures++
+					val values = commonValues(commit, model, samples) + listOf(
+						"unknown", configurationArgument.ifBlank { "unknown" }, phase, run.toString(),
+						threads.toString(), "0", powerManager.currentThermalStatus.toString(),
+						"", "", "", "", "", "", "", "", "", "", "false", "", "", "", "",
+						"", result.exceptionOrNull()?.message.orEmpty(),
+					)
+					writer.appendLine(values.joinToString(",", transform = ::csv))
+					writer.flush()
+					return
+				}
+
+				val diagnostics = transcription.diagnostics
+				val backend = transcription.runtime.backend
+				val transcript = transcription.segments.joinToString(" ") { it.text }.trim()
+				assertTrue("Empty transcript for $threads threads $phase $run", transcript.isNotBlank())
 				if (phase == "measured") {
 					val expected = referenceTranscript
 					if (expected == null) referenceTranscript = normalize(transcript)
-					else assertEquals("Transcript changed for $configuration run $run", expected, normalize(transcript))
+					else assertEquals("Transcript changed for $threads threads run $run", expected, normalize(transcript))
 				}
-				assertEquals(optimized, diagnostics.fastModeApplied)
-				assertEquals(if (optimized) 512 else 0, diagnostics.audioContextOverride)
+				assertEquals(threads, diagnostics.threadCount)
+				assertEquals(0, diagnostics.audioContextOverride)
 
-				val values = listOf(
-					Instant.now().toString(), commit, BuildConfig.VERSION_NAME,
-					Build.MANUFACTURER, Build.MODEL, Build.DEVICE,
-					if (Build.VERSION.SDK_INT >= 31) Build.SOC_MODEL else "unknown",
-					Build.VERSION.RELEASE, Build.VERSION.SDK_INT.toString(), Build.SUPPORTED_ABIS.first(),
-					"benchmarks/samples/jfk-first-9.4s-16khz-mono.wav",
-					sha256(samples), diagnostics.audioDurationMs.toString(), diagnostics.sampleCount.toString(),
-					WhisperEngine.SAMPLE_RATE_HZ.toString(), model.fileName, model.sha256,
-					configuration, phase, run.toString(), diagnostics.threadCount.toString(),
-					diagnostics.audioContextOverride.toString(), diagnostics.fastModeApplied.toString(),
-					diagnostics.modelWasWarm.toString(), powerManager.currentThermalStatus.toString(),
-					format(diagnostics.timings.whisperInferenceMs),
-					format(diagnostics.timings.nativeTotalMs),
-					format(diagnostics.timings.kotlinTotalMs), sha256(transcript.toByteArray()), transcript,
+				val configuration = configurationArgument.ifBlank {
+					if (backend.kleidiAiCompiled) "kleidiai-compiled" else "generic"
+				}
+				val values = commonValues(commit, model, samples) + listOf(
+					backend.modelQuantization, configuration, phase, run.toString(), threads.toString(),
+					diagnostics.audioContextOverride.toString(), powerManager.currentThermalStatus.toString(),
+					backend.arm64.toString(), backend.neon.toString(), backend.dotProd.toString(),
+					backend.i8mm.toString(), backend.kleidiAiCompiled.toString(),
+					backend.kleidiAiAvailable.toString(), backend.selectedBackend,
+					backend.selectedKernelPath, backend.genericFallback.toString(), backend.fallbackReason,
+					"true", format(diagnostics.timings.whisperInferenceMs),
+					format(diagnostics.timings.nativeTotalMs), format(diagnostics.timings.kotlinTotalMs),
+					sha256(transcript.toByteArray()), transcript, "",
 				)
 				writer.appendLine(values.joinToString(",", transform = ::csv))
 				writer.flush()
 			}
 
-			repeat(WARM_UP_RUNS) { execute("baseline", false, "warmup", it + 1) }
-			repeat(MEASURED_RUNS) { execute("baseline", false, "measured", it + 1) }
-			repeat(WARM_UP_RUNS) { execute("optimized", true, "warmup", it + 1) }
-			repeat(MEASURED_RUNS) { execute("optimized", true, "measured", it + 1) }
+			for (threads in THREAD_COUNTS) {
+				repeat(WARM_UP_RUNS) { execute(threads, "warmup", it + 1) }
+				repeat(MEASURED_RUNS) { execute(threads, "measured", it + 1) }
+			}
 		}
 		engine.releaseModel().getOrThrow()
-		assertEquals(1 + (WARM_UP_RUNS + MEASURED_RUNS) * 2, output.readLines().size)
+		assertEquals(0, failures)
+		assertEquals(1 + (WARM_UP_RUNS + MEASURED_RUNS) * THREAD_COUNTS.size, output.readLines().size)
+
+		context.getExternalFilesDir("benchmarks")?.let { externalDirectory ->
+			externalDirectory.mkdirs()
+			output.copyTo(File(externalDirectory, output.name), overwrite = true)
+		}
+		Unit
 	}
+
+	private fun commonValues(commit: String, model: ModelType, samples: ShortArray): List<String> = listOf(
+		Instant.now().toString(), commit, BuildConfig.VERSION_NAME, Build.MANUFACTURER, Build.MODEL,
+		if (Build.VERSION.SDK_INT >= 31) Build.SOC_MODEL else "unknown", Build.VERSION.RELEASE,
+		Build.VERSION.SDK_INT.toString(), Build.SUPPORTED_ABIS.firstOrNull().orEmpty(), INPUT_REPOSITORY_PATH,
+		sha256(samples), (samples.size * 1_000L / WhisperEngine.SAMPLE_RATE_HZ).toString(),
+		samples.size.toString(), WhisperEngine.SAMPLE_RATE_HZ.toString(), model.fileName, model.sha256,
+	)
 
 	private fun normalize(value: String): String = value.lowercase(Locale.US)
 		.replace(Regex("[^a-z0-9]+"), " ").trim()
@@ -135,7 +176,10 @@ class WhisperArm64BenchmarkTest {
 	}
 
 	private companion object {
+		const val INPUT_ASSET_NAME = "jfk-first-9.4s-16khz-mono.wav"
+		const val INPUT_REPOSITORY_PATH = "benchmarks/samples/$INPUT_ASSET_NAME"
+		val THREAD_COUNTS = intArrayOf(2, 4, 6, 8)
 		const val WARM_UP_RUNS = 2
-		const val MEASURED_RUNS = 5
+		const val MEASURED_RUNS = 10
 	}
 }
