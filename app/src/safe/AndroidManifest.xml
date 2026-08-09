@@ -8,6 +8,14 @@
         tools:node="remove" />
 
     <application>
+        <!-- Keep the mediaProjection declaration explicit in this flavor manifest so release lint
+             and the merged manifest agree on the foreground-service contract. -->
+        <service
+            android:name=".service.CaptureService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection"
+            tools:node="merge" />
+
         <service
             android:name=".overlay.OverlayService"
             tools:node="remove" />

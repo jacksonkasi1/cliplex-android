@@ -4,9 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches:
-      - main
-      - agent/taste-skill-ui-v2
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -51,12 +49,22 @@ jobs:
             "cmake;3.22.1"
 
       - name: Test, lint and assemble submission APK
+        shell: bash
         run: |
+          set +e
           chmod +x gradlew
           ./gradlew --no-daemon \
             :app:testSafeSubmissionUnitTest \
             :app:lintSafeSubmission \
             :app:assembleSafeSubmission
+          STATUS=$?
+
+          if [ "$STATUS" -ne 0 ]; then
+            echo "Production validation failed. Printing complete lint text reports when available."
+            find app/build -type f -name 'lint-results-safeSubmission.txt' -print -exec cat {} \; || true
+          fi
+
+          exit "$STATUS"
 
       - name: Verify and stage production artifact
         shell: bash
@@ -91,6 +99,7 @@ jobs:
           debuggable=false
           minified=true
           resource_shrinking=true
+          max_capture_seconds=180
           apk_bytes=$APK_BYTES
           git_sha=$GITHUB_SHA
           META
