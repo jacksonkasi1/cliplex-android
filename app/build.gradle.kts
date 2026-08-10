@@ -5,6 +5,16 @@ plugins {
     id("org.jetbrains.kotlin.kapt")
 }
 
+val cliplexKleidiAiEnabled = providers.gradleProperty("cliplexKleidiAi")
+    .map { rawValue ->
+        require(rawValue.equals("true", ignoreCase = true) || rawValue.equals("false", ignoreCase = true)) {
+            "cliplexKleidiAi must be true or false"
+        }
+        rawValue.toBoolean()
+    }
+    .orElse(false)
+    .get()
+
 android {
     namespace = "com.jacksonkasi.cliplex"
     compileSdk = 36
@@ -17,6 +27,9 @@ android {
         versionCode = 2
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("boolean", "KLEIDIAI_INTEGRATION_ENABLED", cliplexKleidiAiEnabled.toString())
+        buildConfigField("String", "WHISPER_COMMIT", "\"a8d002cfd879315632a579e73f0148d06959de36\"")
+        buildConfigField("String", "KLEIDIAI_VERSION", "\"v1.9.0\"")
         vectorDrawables.useSupportLibrary = true
         ndk.abiFilters += "arm64-v8a"
 
@@ -30,7 +43,7 @@ android {
                     "-DWHISPER_BUILD_EXAMPLES=OFF",
                     "-DWHISPER_BUILD_SERVER=OFF",
                     "-DGGML_NATIVE=OFF",
-                    "-DGGML_CPU_KLEIDIAI=OFF",
+                    "-DCLIPLEX_ENABLE_KLEIDIAI=${if (cliplexKleidiAiEnabled) "ON" else "OFF"}",
                 )
             }
         }

@@ -20,6 +20,45 @@ import org.robolectric.annotation.Config
 @Config(manifest = Config.NONE, sdk = [34])
 class WhisperEngineTest {
 	@Test
+	fun `runtime parser preserves honest experimental KleidiAI telemetry`() {
+		val result = WhisperJsonParser.parseModelLoad(
+			"""
+				{
+				  "success": true,
+				  "cacheHit": false,
+				  "nativeLoadMs": 1.0,
+				  "systemInfo": "fake arm64 system",
+				  "backend": {
+				    "abi": "arm64-v8a",
+				    "arm64": true,
+				    "neon": true,
+				    "dotProd": true,
+				    "i8mm": false,
+				    "kleidiAiIntegrationEnabled": true,
+				    "kleidiAiSourcesIncluded": true,
+				    "kleidiAiKernelSelectionObserved": false,
+				    "modelEligibleForKleidiAi": false,
+				    "selectedComputePath": "generic-ggml",
+				    "fallbackReason": "Q5_1 is not supported by the pinned KleidiAI integration",
+				    "modelQuantization": "Q5_1"
+				  },
+				  "model": null
+				}
+			""".trimIndent(),
+		)
+
+		with(result.runtime.backend) {
+			assertTrue(kleidiAiIntegrationEnabled)
+			assertTrue(kleidiAiSourcesIncluded)
+			assertFalse(kleidiAiKernelSelectionObserved)
+			assertFalse(modelEligibleForKleidiAi)
+			assertEquals("generic-ggml", selectedComputePath)
+			assertEquals("Q5_1 is not supported by the pinned KleidiAI integration", fallbackReason)
+			assertEquals("Q5_1", modelQuantization)
+		}
+	}
+
+	@Test
 	fun `detailed result exposes native runtime and phase timings`() = runBlocking {
 		val native = FakeNativeApi()
 		val engine = WhisperEngine(native)
